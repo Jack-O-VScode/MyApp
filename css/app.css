@@ -705,6 +705,78 @@ main {
   outline: none;
 }
 
+/* -------------------------------------------------------------- transfer -- */
+.dropzone {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 26px 18px;
+  margin-bottom: 14px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+.dropzone.is-over { border-color: var(--brand); background: var(--brand-soft); }
+.dropzone svg { width: 30px; height: 30px; color: var(--brand); }
+.dropzone p { margin: 0; }
+.dropzone-hint { color: var(--text-soft); font-size: .88rem; margin-bottom: 6px !important; }
+
+.transfer-message {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: .88rem;
+}
+.transfer-message.is-error {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.transfer-list { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.transfer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+.transfer-body { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.transfer-name {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.transfer-meta { color: var(--text-soft); font-size: .8rem; }
+.transfer-actions { flex: none; display: flex; gap: 6px; }
+.transfer-actions .button { padding: 6px 11px; font-size: .85rem; }
+.button.danger.small { border-color: var(--line); }
+
+.progress {
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+  transition: width .15s linear;
+}
+
+@media (max-width: 560px) {
+  .transfer-item { flex-wrap: wrap; }
+  .transfer-actions { width: 100%; }
+  .transfer-actions .button { flex: 1; }
+}
+
 /* ---------------------------------------------------------------- modals -- */
 .modal {
   position: fixed;

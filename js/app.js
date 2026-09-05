@@ -7,7 +7,8 @@
     today: { title: 'Today', action: '' },
     calendar: { title: 'Calendar', action: 'Today' },
     tasks: { title: 'Tasks', action: 'New task' },
-    notes: { title: 'Notes', action: 'New note' }
+    notes: { title: 'Notes', action: 'New note' },
+    transfer: { title: 'Transfer', action: '' }
   };
 
   var menuButton, menu, scrim, viewTitle, actionButton, toastEl;
@@ -42,7 +43,8 @@
     today: function () { TodayView.render(); },
     calendar: function () { CalendarView.render(); },
     tasks: function () { TasksView.render(); },
-    notes: function () { NotesView.render(); }
+    notes: function () { NotesView.render(); },
+    transfer: function () { TransfersView.render(); }
   };
 
   function showView(name) {
@@ -391,6 +393,7 @@
     CalendarView.init();
     NotesView.init();
     TodayView.init();
+    TransfersView.init();
     setupSync();
 
     menuButton.addEventListener('click', function () {
@@ -398,6 +401,9 @@
       else openMenu();
     });
     menu.addEventListener('click', handleMenuClick);
+    document.getElementById('transfer-setup').addEventListener('click', function (clickEvent) {
+      if (clickEvent.target.closest('[data-action="sync"]')) openSync();
+    });
     scrim.addEventListener('click', function () { closeMenu(false); });
 
     actionButton.addEventListener('click', function () {

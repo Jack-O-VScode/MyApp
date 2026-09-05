@@ -1,6 +1,6 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v3';
+var CACHE = 'calendar-notes-v4';
 
 var SHELL = [
   './',
@@ -10,6 +10,7 @@ var SHELL = [
   'js/calendar.js',
   'js/tasks.js',
   'js/today.js',
+  'js/transfers.js',
   'js/notes.js',
   'js/sync.js',
   'js/app.js',

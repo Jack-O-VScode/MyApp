@@ -388,10 +388,26 @@ window.Sync = (function () {
     }
   }
 
+  // Everything another module needs to call the same project directly — used
+  // by js/transfers.js for Storage, which is not part of the record sync.
+  function authorized() {
+    return ensureToken().then(function () {
+      return {
+        url: config.url.replace(/\/+$/, ''),
+        userId: config.userId,
+        headers: {
+          apikey: config.anonKey,
+          Authorization: 'Bearer ' + config.accessToken
+        }
+      };
+    });
+  }
+
   return {
     init: init,
     subscribe: function (fn) { listeners.push(fn); },
     getStatus: getStatus,
+    authorized: authorized,
     getConfig: function () { return { url: config.url, anonKey: config.anonKey }; },
     configure: configure,
     signIn: signIn,
