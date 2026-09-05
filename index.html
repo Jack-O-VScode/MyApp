@@ -389,6 +389,7 @@
 
 alter table public.sync_records enable row level security;
 
+drop policy if exists "own rows" on public.sync_records;
 create policy "own rows" on public.sync_records
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -402,6 +403,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists sync_records_touch on public.sync_records;
 create trigger sync_records_touch before insert or update
   on public.sync_records for each row execute function public.touch_synced_at();
 
@@ -410,6 +412,7 @@ insert into storage.buckets (id, name, public)
 values ('transfers', 'transfers', false)
 on conflict (id) do nothing;
 
+drop policy if exists "own transfer files" on storage.objects;
 create policy "own transfer files" on storage.objects
   for all to authenticated
   using (

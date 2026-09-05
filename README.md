@@ -124,7 +124,9 @@ repeated on each device.
 
 1. In the left sidebar, open **SQL Editor** and click **New query**.
 2. Paste the block below and press **Run** (or Ctrl/Cmd + Enter). You should see
-   *Success. No rows returned*.
+   *Success. No rows returned*. The script is safe to run more than once — it drops
+   each policy and trigger before recreating it, so a second run repairs a
+   half-finished first one instead of failing.
 
 ```sql
 -- Records: events, tasks and notes.
@@ -142,6 +144,7 @@ create table if not exists public.sync_records (
 
 alter table public.sync_records enable row level security;
 
+drop policy if exists "own rows" on public.sync_records;
 create policy "own rows" on public.sync_records
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -155,6 +158,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists sync_records_touch on public.sync_records;
 create trigger sync_records_touch before insert or update
   on public.sync_records for each row execute function public.touch_synced_at();
 
@@ -163,6 +167,7 @@ insert into storage.buckets (id, name, public)
 values ('transfers', 'transfers', false)
 on conflict (id) do nothing;
 
+drop policy if exists "own transfer files" on storage.objects;
 create policy "own transfer files" on storage.objects
   for all to authenticated
   using (
@@ -227,7 +232,8 @@ Home Screen* on iOS.
 | *Email not confirmed* | Click the link Supabase emailed, or turn off **Confirm email** as in step 4. |
 | Sync chip stuck on **Error** | Open Sync and read the message. A "relation sync_records does not exist" means step 2 did not run. |
 | *No "transfers" bucket…* | The storage half of step 2 did not run. Re-run just that part. |
-| *…violates row-level security policy* | The policies did not get created. Re-run step 2; `create policy` fails silently in some editors if a policy of that name already exists — drop it first. |
+| *…violates row-level security policy* | The policies did not get created. Re-run step 2. |
+| *policy "own rows" … already exists* | An older copy of this script was not re-runnable. Use the current block, which drops each policy and trigger before recreating it. |
 | Everything hangs offline | The project may be paused (see below); open the dashboard to resume it. |
 
 ### Living with the free tier
