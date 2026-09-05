@@ -512,6 +512,73 @@ main {
 .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .spacer { flex: 1; }
 
+/* ------------------------------------------------------------------ sync -- */
+.menu-chip {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: .72rem;
+  font-weight: 600;
+}
+.menu-chip[data-state="ok"] { background: var(--brand-soft); color: var(--brand); }
+.menu-chip[data-state="syncing"] { background: var(--brand-soft); color: var(--brand); }
+.menu-chip[data-state="error"],
+.menu-chip[data-state="signed-out"] { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+
+.sync-state {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: .88rem;
+}
+.sync-state[data-state="ok"] { background: var(--brand-soft); color: var(--brand); }
+.sync-state[data-state="error"],
+.sync-state[data-state="signed-out"] {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+.sync-account { margin: 0 0 12px; }
+
+.sync-help { margin: 0 0 14px; }
+.sync-help summary {
+  padding: 8px 0;
+  color: var(--brand);
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sync-help .help-list { margin-bottom: 10px; }
+.sql-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: var(--text-soft);
+  font-size: .78rem;
+  font-weight: 600;
+}
+.text-button.small { padding: 4px 8px; font-size: .8rem; }
+
+.sql {
+  max-height: 220px;
+  margin: 0 0 10px;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .74rem;
+  line-height: 1.5;
+  -webkit-user-select: all;
+  user-select: all;
+}
+
 .help-list { margin: 0; padding-left: 20px; color: var(--text-soft); }
 .help-list li { margin-bottom: 5px; }
 .help-list strong { color: var(--text); }

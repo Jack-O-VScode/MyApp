@@ -122,6 +122,183 @@
     reader.readAsText(file);
   }
 
+  /* ----------------------------------------------------------------- sync -- */
+
+  var syncEls = {};
+
+  function syncStateText(info) {
+    if (!info.configured) return 'Not set up yet — add your project below to sync with another device.';
+    if (!info.signedIn) return 'Project saved. Sign in to start syncing.';
+    switch (info.state) {
+      case 'syncing': return 'Syncing…';
+      case 'offline': return 'Offline — changes will go up when the connection returns.';
+      case 'error': return info.message || 'Sync failed.';
+      case 'signed-out': return info.message || 'Sign in again.';
+      default:
+        return info.lastSyncedAt
+          ? 'Up to date · last synced ' + relativeTime(info.lastSyncedAt)
+          : 'Connected.';
+    }
+  }
+
+  function syncChipText(info) {
+    if (!info.configured || !info.signedIn) return 'Off';
+    if (info.state === 'syncing') return 'Syncing';
+    if (info.state === 'offline') return 'Offline';
+    if (info.state === 'error' || info.state === 'signed-out') return 'Error';
+    return 'On';
+  }
+
+  function relativeTime(stamp) {
+    var seconds = Math.round((Date.now() - stamp) / 1000);
+    if (seconds < 60) return 'just now';
+    var minutes = Math.round(seconds / 60);
+    if (minutes < 60) return minutes + (minutes === 1 ? ' minute ago' : ' minutes ago');
+    var hours = Math.round(minutes / 60);
+    if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+    return new Date(stamp).toLocaleDateString();
+  }
+
+  function renderSync() {
+    var info = Sync.getStatus();
+
+    syncEls.chip.textContent = syncChipText(info);
+    syncEls.chip.dataset.state = info.state;
+    syncEls.state.textContent = syncStateText(info);
+    syncEls.state.dataset.state = info.state;
+
+    // Only one of the three steps is ever on screen.
+    syncEls.stepServer.hidden = info.configured;
+    syncEls.stepAccount.hidden = !info.configured || info.signedIn;
+    syncEls.stepConnected.hidden = !info.signedIn;
+    syncEls.email.textContent = info.email || '';
+  }
+
+  function syncError(message) {
+    syncEls.error.textContent = message;
+    syncEls.error.hidden = !message;
+  }
+
+  function busy(button, isBusy, label) {
+    button.disabled = isBusy;
+    if (isBusy) {
+      button.dataset.label = button.textContent;
+      button.textContent = label;
+    } else if (button.dataset.label) {
+      button.textContent = button.dataset.label;
+    }
+  }
+
+  function authenticate(button, action, email, password) {
+    if (!email || !password) return syncError('Enter your email and password.');
+    if (password.length < 6) return syncError('Supabase needs a password of at least 6 characters.');
+    syncError('');
+    busy(button, true, 'Working…');
+    action(email, password).then(function () {
+      syncEls.password.value = '';
+      renderSync();
+      toast('Sync is on.');
+    }).catch(function (err) {
+      syncError(err.message || 'That did not work.');
+    }).then(function () {
+      busy(button, false);
+      renderSync();
+    });
+  }
+
+  // Clipboard access can be refused (or missing on older Safari); selecting the
+  // text at least leaves the user one tap from copying it.
+  function selectSql() {
+    var block = document.getElementById('sync-sql');
+    var range = document.createRange();
+    range.selectNodeContents(block);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function openSync() {
+    var stored = Sync.getConfig();
+    syncEls.url.value = stored.url;
+    syncEls.key.value = stored.anonKey;
+    syncError('');
+    renderSync();
+    syncEls.modal.hidden = false;
+  }
+
+  function setupSync() {
+    syncEls = {
+      modal: document.getElementById('sync-modal'),
+      chip: document.getElementById('sync-chip'),
+      state: document.getElementById('sync-state'),
+      error: document.getElementById('sync-error'),
+      stepServer: document.getElementById('sync-step-server'),
+      stepAccount: document.getElementById('sync-step-account'),
+      stepConnected: document.getElementById('sync-step-connected'),
+      url: document.getElementById('sync-url'),
+      key: document.getElementById('sync-key'),
+      emailInput: document.getElementById('sync-email-input'),
+      password: document.getElementById('sync-password'),
+      email: document.getElementById('sync-email')
+    };
+
+    document.getElementById('sync-save').addEventListener('click', function () {
+      var url = syncEls.url.value.trim();
+      var key = syncEls.key.value.trim();
+      if (!/^https?:\/\//.test(url)) return syncError('The project URL should start with https://');
+      if (!key) return syncError('Paste the anon public key too.');
+      syncError('');
+      Sync.configure(url, key);
+      renderSync();
+      syncEls.emailInput.focus();
+    });
+
+    document.getElementById('sync-copy-sql').addEventListener('click', function () {
+      var button = this;
+      var sql = document.getElementById('sync-sql').textContent;
+      var done = function () {
+        button.textContent = 'Copied';
+        setTimeout(function () { button.textContent = 'Copy'; }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(sql).then(done, selectSql);
+      } else {
+        selectSql();
+      }
+    });
+
+    document.getElementById('sync-signin').addEventListener('click', function () {
+      authenticate(this, Sync.signIn, syncEls.emailInput.value.trim(), syncEls.password.value);
+    });
+    document.getElementById('sync-signup').addEventListener('click', function () {
+      authenticate(this, Sync.signUp, syncEls.emailInput.value.trim(), syncEls.password.value);
+    });
+    document.getElementById('sync-change-server').addEventListener('click', function () {
+      Sync.forget();
+      openSync();
+    });
+    document.getElementById('sync-now').addEventListener('click', function () {
+      Sync.syncNow().then(renderSync);
+    });
+    document.getElementById('sync-disconnect').addEventListener('click', function () {
+      if (!window.confirm('Stop syncing on this device? Your events and notes stay here.')) return;
+      Sync.signOut();
+      renderSync();
+      toast('Sync turned off on this device.');
+    });
+
+    Array.prototype.forEach.call(syncEls.modal.querySelectorAll('[data-sync-close]'), function (button) {
+      button.addEventListener('click', function () { syncEls.modal.hidden = true; });
+    });
+    syncEls.modal.addEventListener('mousedown', function (clickEvent) {
+      if (clickEvent.target === syncEls.modal) syncEls.modal.hidden = true;
+    });
+
+    Sync.subscribe(renderSync);
+    Sync.init();
+    renderSync();
+  }
+
   /* ---------------------------------------------------------------- toast -- */
 
   function toast(message) {
@@ -144,6 +321,9 @@
     }
 
     switch (item.dataset.action) {
+      case 'sync':
+        openSync();
+        break;
       case 'export':
         exportBackup();
         break;
@@ -175,6 +355,7 @@
 
     CalendarView.init();
     NotesView.init();
+    setupSync();
 
     menuButton.addEventListener('click', function () {
       if (menuIsOpen()) closeMenu(true);
@@ -206,6 +387,7 @@
       var help = document.getElementById('help-modal');
       if (menuIsOpen()) closeMenu(true);
       else if (!help.hidden) help.hidden = true;
+      else if (!syncEls.modal.hidden) syncEls.modal.hidden = true;
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
       else if (NotesView.isEditorOpen()) NotesView.closeEditor();
     });

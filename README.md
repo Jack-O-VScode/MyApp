@@ -22,9 +22,10 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 - A note left completely blank is discarded instead of cluttering the list.
 
 **Both**
+- Optional **sync**: type on the PC, see it on the phone (setup below).
 - Works with no connection at all once it has loaded once.
 - Light and dark themes follow the system setting.
-- **Export backup** / **Import backup** in the menu move data between devices.
+- **Export backup** / **Import backup** in the menu write and read a JSON file.
   Importing merges by entry, so re-importing the same file changes nothing.
 
 ## Install it
@@ -72,15 +73,53 @@ Opening `index.html` straight from the file system also works for a quick look,
 but browsers disable service workers and app installation on `file://`, so use
 the server (or a real host) for the full thing.
 
+## Sync between devices
+
+Off by default. With it on, an edit on the PC shows up on the phone (and the
+other way round) without touching a file.
+
+It syncs through a free [Supabase](https://supabase.com) project **you own** —
+there is no server of mine in the middle, and your data sits in your own
+database.
+
+**Setting it up** (about five minutes, once):
+
+1. Create a free Supabase account and start a new project.
+2. In the project's **SQL Editor**, paste the block the app shows under
+   *Menu → Sync → "Where do I find these?"* (there is a **Copy** button) and run it.
+   It creates one table and locks it to the signed-in user with row-level security.
+3. In **Project Settings → API**, copy the **Project URL** and the **anon public**
+   key into the app's Sync panel, then **Save**.
+4. **Create account** with any email and password. That account is yours alone.
+5. On the other device, open the app, paste the same URL and key, and **Sign in**
+   with the same email. Both devices converge within a second or two.
+
+**How it behaves**
+- Local first: every view reads from the device, so the app is exactly as fast
+  and as offline-capable as before. Sync happens in the background.
+- Changes upload about a second after you stop typing, and download when you
+  open the app, switch back to it, or every 15 seconds while it is in front.
+- Offline edits queue up and go out when the connection returns.
+- Deletes are tracked, so deleting on one device does not come back from the other.
+- Conflicts resolve last-write-wins per item, using device clocks. Editing the
+  *same* note on two devices at once keeps the later save and drops the earlier
+  one; separate items never conflict.
+- **Disconnect** stops syncing on that device and leaves its data in place.
+
+**Worth knowing:** the anon key is designed to be published — row-level security
+is what protects the rows. Session tokens live in `localStorage` like any web
+app, so treat a shared computer accordingly. Supabase pauses free projects after
+a week of inactivity; opening the dashboard resumes them.
+
 ## Where the data lives
 
 Events and notes are stored in the browser's `localStorage` for the site's
-origin. Nothing is uploaded and there is no account.
+origin, and mirrored to your Supabase project only if you turn sync on.
 
 Consequences worth knowing:
-- Data does **not** sync between your PC and your phone — use Export/Import.
+- Without sync, the PC and the phone hold separate data — use Export/Import.
 - Clearing site data for this site (or "Clear History and Website Data" in
-  Safari) deletes it, so keep an occasional backup.
+  Safari) deletes the local copy, so keep an occasional backup.
 
 ## Project layout
 
@@ -90,7 +129,8 @@ css/app.css             all styling, including the light/dark palette
 js/store.js             localStorage data layer for events and notes
 js/calendar.js          month grid, day panel, event editor
 js/notes.js             note list, search, note editor
-js/app.js               menu, view switching, backups, service worker setup
+js/sync.js              optional Supabase sync: auth, pull/push, merge
+js/app.js               menu, view switching, sync panel, backups, service worker
 sw.js                   offline cache for the app shell
 manifest.webmanifest    name, icons, colours, Windows jump-list shortcuts
 icons/                  generated PNG icons (Windows tiles, iOS home screen)
