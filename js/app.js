@@ -1,15 +1,17 @@
-/* App shell: the hamburger menu, switching between the two views, backups and
-   the service worker. */
+/* App shell: the hamburger menu, switching between views, the app-icon badge,
+   backups and the service worker. */
 (function () {
   'use strict';
 
   var VIEWS = {
+    today: { title: 'Today', action: '' },
     calendar: { title: 'Calendar', action: 'Today' },
+    tasks: { title: 'Tasks', action: 'New task' },
     notes: { title: 'Notes', action: 'New note' }
   };
 
   var menuButton, menu, scrim, viewTitle, actionButton, toastEl;
-  var currentView = 'calendar';
+  var currentView = 'today';
   var toastTimer = null;
   var installPrompt = null;
 
@@ -36,14 +38,24 @@
 
   /* -------------------------------------------------------------- routing -- */
 
+  var RENDER = {
+    today: function () { TodayView.render(); },
+    calendar: function () { CalendarView.render(); },
+    tasks: function () { TasksView.render(); },
+    notes: function () { NotesView.render(); }
+  };
+
   function showView(name) {
-    if (!VIEWS[name]) name = 'calendar';
+    if (!VIEWS[name]) name = 'today';
+    if (name !== 'today') TodayView.clearSearch();
     currentView = name;
 
-    document.getElementById('view-calendar').hidden = name !== 'calendar';
-    document.getElementById('view-notes').hidden = name !== 'notes';
+    Object.keys(VIEWS).forEach(function (key) {
+      document.getElementById('view-' + key).hidden = key !== name;
+    });
     viewTitle.textContent = VIEWS[name].title;
     actionButton.textContent = VIEWS[name].action;
+    actionButton.hidden = !VIEWS[name].action;
 
     Array.prototype.forEach.call(menu.querySelectorAll('[data-view]'), function (item) {
       var isCurrent = item.dataset.view === name;
@@ -51,15 +63,13 @@
       item.setAttribute('aria-current', isCurrent ? 'page' : 'false');
     });
 
-    if (name === 'calendar') CalendarView.render();
-    else NotesView.render();
-
+    RENDER[name]();
     window.scrollTo(0, 0);
   }
 
   function routeFromHash() {
     var name = (location.hash || '').replace('#', '');
-    showView(VIEWS[name] ? name : 'calendar');
+    showView(VIEWS[name] ? name : 'today');
   }
 
   function navigate(name) {
@@ -299,6 +309,30 @@
     renderSync();
   }
 
+  /* --------------------------------------------------------------- counts -- */
+
+  // Outstanding work shows up in two places: next to Today and Tasks in the
+  // menu, and on the app icon itself where the platform allows it.
+  function renderCounts() {
+    var due = Store.tasksDue(Store.todayKey()).length;
+
+    [document.getElementById('today-chip'), document.getElementById('tasks-chip')]
+      .forEach(function (chip) {
+        chip.textContent = due;
+        chip.hidden = due === 0;
+        chip.dataset.state = due ? 'due' : '';
+      });
+
+    // Supported by installed PWAs on Windows and iOS; simply absent elsewhere.
+    if (!navigator.setAppBadge) return;
+    try {
+      if (due) navigator.setAppBadge(due);
+      else if (navigator.clearAppBadge) navigator.clearAppBadge();
+    } catch (err) {
+      // A badge is a nicety; never let it break a render.
+    }
+  }
+
   /* ---------------------------------------------------------------- toast -- */
 
   function toast(message) {
@@ -353,8 +387,10 @@
     actionButton = document.getElementById('appbar-action');
     toastEl = document.getElementById('toast');
 
+    TasksView.init();
     CalendarView.init();
     NotesView.init();
+    TodayView.init();
     setupSync();
 
     menuButton.addEventListener('click', function () {
@@ -366,7 +402,8 @@
 
     actionButton.addEventListener('click', function () {
       if (currentView === 'calendar') CalendarView.goToday();
-      else NotesView.newNote();
+      else if (currentView === 'tasks') TasksView.newTask();
+      else if (currentView === 'notes') NotesView.newNote();
     });
 
     document.getElementById('help-close').addEventListener('click', function () {
@@ -389,6 +426,7 @@
       else if (!help.hidden) help.hidden = true;
       else if (!syncEls.modal.hidden) syncEls.modal.hidden = true;
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
+      else if (TasksView.isModalOpen()) TasksView.closeModal();
       else if (NotesView.isEditorOpen()) NotesView.closeEditor();
     });
 
@@ -396,9 +434,10 @@
     routeFromHash();
 
     Store.subscribe(function () {
-      if (currentView === 'calendar') CalendarView.render();
-      else NotesView.render();
+      RENDER[currentView]();
+      renderCounts();
     });
+    renderCounts();
 
     if (!Store.isPersistent()) {
       toast('Storage is blocked, so changes will not be kept.');

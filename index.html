@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Calendar &amp; Notes</title>
-<meta name="description" content="A calendar and a notepad in one offline-capable app.">
+<meta name="description" content="Calendar, tasks and notes in one offline-capable app.">
 
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f6bf6" media="(prefers-color-scheme: light)">
@@ -29,14 +29,24 @@
     <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
   </button>
 
-  <h1 id="view-title" class="appbar-title">Calendar</h1>
+  <h1 id="view-title" class="appbar-title">Today</h1>
 
   <button id="appbar-action" class="text-button" type="button">Today</button>
 
   <nav id="menu" class="menu" role="menu" aria-labelledby="menu-button" hidden>
-    <button class="menu-item is-current" role="menuitem" data-view="calendar">
+    <button class="menu-item is-current" role="menuitem" data-view="today">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3.5 2M15 3h6v6"/></svg>
+      <span>Today</span>
+      <span id="today-chip" class="menu-chip" hidden></span>
+    </button>
+    <button class="menu-item" role="menuitem" data-view="calendar">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v3M17 2v3M3.5 9h17M4 5.5h16a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z"/></svg>
       <span>Calendar</span>
+    </button>
+    <button class="menu-item" role="menuitem" data-view="tasks">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 2.5 2.5L11 5M4 17l2.5 2.5L11 15M14 8h6M14 18h6"/></svg>
+      <span>Tasks</span>
+      <span id="tasks-chip" class="menu-chip" hidden></span>
     </button>
     <button class="menu-item" role="menuitem" data-view="notes">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M8.5 13h7M8.5 17h4.5"/></svg>
@@ -71,8 +81,47 @@
 <div id="menu-scrim" class="scrim" hidden></div>
 
 <main>
+  <!-- --------------------------------- Today -------------------------------- -->
+  <section id="view-today" class="view" aria-label="Today">
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      <input id="global-search" type="search" placeholder="Search events, tasks and notes"
+             autocomplete="off" aria-label="Search everything">
+    </label>
+
+    <div id="search-results" class="search-results" hidden></div>
+
+    <div id="today-body">
+      <p id="today-date" class="today-date"></p>
+
+      <section class="card today-card">
+        <div class="card-head">
+          <h2>Today&rsquo;s schedule</h2>
+          <button class="button small" type="button" data-add="event">Add event</button>
+        </div>
+        <ul id="today-events" class="event-list"></ul>
+      </section>
+
+      <section class="card today-card">
+        <div class="card-head">
+          <h2>Tasks</h2>
+          <button class="button small" type="button" data-add="task">Add task</button>
+        </div>
+        <ul id="today-tasks" class="task-list"></ul>
+      </section>
+
+      <section class="card today-card">
+        <div class="card-head">
+          <h2>Recent notes</h2>
+          <button class="button small" type="button" data-add="note">New note</button>
+        </div>
+        <div id="today-notes" class="note-strip"></div>
+      </section>
+    </div>
+  </section>
+
   <!-- ------------------------------- Calendar ------------------------------- -->
-  <section id="view-calendar" class="view" aria-label="Calendar">
+  <section id="view-calendar" class="view" aria-label="Calendar" hidden>
     <div class="calendar-layout">
       <div class="card calendar-card">
         <div class="month-bar">
@@ -94,8 +143,35 @@
           <button id="add-event" class="button primary" type="button">Add event</button>
         </div>
         <ul id="day-events" class="event-list"></ul>
+        <div id="day-tasks-wrap" hidden>
+          <h3 class="subhead">Tasks due</h3>
+          <ul id="day-tasks" class="task-list"></ul>
+        </div>
       </div>
     </div>
+  </section>
+
+  <!-- --------------------------------- Tasks -------------------------------- -->
+  <section id="view-tasks" class="view" aria-label="Tasks" hidden>
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      <input id="task-search" type="search" placeholder="Search tasks" autocomplete="off"
+             aria-label="Search tasks">
+    </label>
+
+    <form id="quick-task" class="quick-task">
+      <input id="quick-task-title" type="text" placeholder="Add a task and press Enter"
+             maxlength="200" autocomplete="off" aria-label="New task">
+      <button class="button primary" type="submit">Add</button>
+    </form>
+
+    <div class="task-filters" role="group" aria-label="Filter tasks">
+      <button class="chip is-on" type="button" data-filter="open">To do</button>
+      <button class="chip" type="button" data-filter="all">All</button>
+      <button id="clear-done" class="chip chip-quiet" type="button" hidden>Clear finished</button>
+    </div>
+
+    <ul id="task-list" class="task-list card-list"></ul>
   </section>
 
   <!-- --------------------------------- Notes -------------------------------- -->
@@ -108,6 +184,7 @@
       </label>
       <button id="add-note" class="button primary" type="button">New note</button>
     </div>
+    <div id="tag-filters" class="task-filters" role="group" aria-label="Filter by tag"></div>
     <div id="note-list" class="note-list"></div>
   </section>
 </main>
@@ -131,15 +208,72 @@
           <input id="event-time" name="time" type="time">
         </label>
       </div>
+      <div class="field-row">
+        <label class="field">
+          <span>Repeats</span>
+          <select id="event-repeat" name="repeat">
+            <option value="">Does not repeat</option>
+            <option value="daily">Every day</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
+            <option value="yearly">Every year</option>
+          </select>
+        </label>
+        <label class="field" id="event-until-field" hidden>
+          <span>Until <em>optional</em></span>
+          <input id="event-until" name="until" type="date">
+        </label>
+      </div>
       <label class="field">
         <span>Details <em>optional</em></span>
         <textarea id="event-details" name="details" rows="3" maxlength="2000" placeholder="Address, agenda, who's coming…"></textarea>
       </label>
+
+      <fieldset id="event-scope" class="scope" hidden>
+        <legend>This event repeats. Apply changes to</legend>
+        <label><input type="radio" name="scope" value="occurrence" checked> Only this day</label>
+        <label><input type="radio" name="scope" value="series"> The whole series</label>
+      </fieldset>
+
       <p id="event-error" class="form-error" role="alert" hidden></p>
       <div class="modal-actions">
         <button id="event-delete" class="button danger" type="button" hidden>Delete</button>
         <span class="spacer"></span>
         <button id="event-cancel" class="button" type="button">Cancel</button>
+        <button class="button primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ------------------------------ Task editor ------------------------------ -->
+<div id="task-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title" hidden>
+  <div class="modal-panel">
+    <h2 id="task-modal-title">New task</h2>
+    <form id="task-form" novalidate>
+      <label class="field">
+        <span>Task</span>
+        <input id="task-title" name="title" type="text" required maxlength="200" placeholder="What needs doing?">
+      </label>
+      <label class="field">
+        <span>Due <em>optional</em></span>
+        <input id="task-due" name="due" type="date">
+      </label>
+      <div class="quick-dates">
+        <button class="chip" type="button" data-due="0">Today</button>
+        <button class="chip" type="button" data-due="1">Tomorrow</button>
+        <button class="chip" type="button" data-due="7">Next week</button>
+        <button class="chip" type="button" data-due="">No date</button>
+      </div>
+      <label class="field">
+        <span>Notes <em>optional</em></span>
+        <textarea id="task-details" name="details" rows="3" maxlength="2000"></textarea>
+      </label>
+      <p id="task-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button id="task-delete" class="button danger" type="button" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button id="task-cancel" class="button" type="button">Cancel</button>
         <button class="button primary" type="submit">Save</button>
       </div>
     </form>
@@ -153,12 +287,20 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
     </button>
     <span id="note-status" class="note-status" aria-live="polite"></span>
+    <button id="note-pin" class="icon-button" type="button" aria-pressed="false" aria-label="Pin note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 3v2H6v-2l4-3-1-6Z"/><path d="M12 14v7"/></svg>
+    </button>
     <button id="note-delete" class="icon-button danger" type="button" aria-label="Delete note">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>
     </button>
   </div>
   <input id="note-title" class="note-title" type="text" placeholder="Title" maxlength="200" aria-label="Note title">
   <textarea id="note-body" class="note-body" placeholder="Start writing…" aria-label="Note body"></textarea>
+  <label class="note-tags">
+    <span>Tags</span>
+    <input id="note-tags" type="text" placeholder="work, ideas" autocomplete="off"
+           autocapitalize="none" aria-label="Tags, separated by commas">
+  </label>
 </div>
 
 <!-- -------------------------------- Sync ----------------------------------- -->
@@ -171,7 +313,7 @@
     <!-- Step 1: which project to talk to. -->
     <section id="sync-step-server">
       <p class="help-note">Sync uses a free Supabase project that belongs to you — your
-        events and notes stay in your own database, not on anyone else's server.</p>
+        events, tasks and notes stay in your own database, not on anyone else's server.</p>
       <label class="field">
         <span>Project URL</span>
         <input id="sync-url" type="url" placeholder="https://abcdefgh.supabase.co"
@@ -287,8 +429,8 @@ create trigger sync_records_touch before insert or update
         <strong>Apps</strong> / <strong>Cast, save and share</strong> &rarr; <strong>Install this site as an app</strong>.</li>
       <li>It then opens in its own window and gets a Start-menu entry.</li>
     </ol>
-    <p class="help-note">Your events and notes are stored on the device itself — nothing is uploaded.
-      Use <strong>Export backup</strong> to move them between devices.</p>
+    <p class="help-note">Your data is stored on the device itself. Turn on <strong>Sync</strong>
+      to share it between devices, or use <strong>Export backup</strong> to move it by hand.</p>
     <div class="modal-actions">
       <span class="spacer"></span>
       <button id="help-close" class="button primary" type="button">Got it</button>
@@ -301,7 +443,9 @@ create trigger sync_records_touch before insert or update
 
 <script src="js/store.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/tasks.js"></script>
 <script src="js/notes.js"></script>
+<script src="js/today.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -1,27 +1,46 @@
 # Calendar & Notes
 
-A calendar and a notepad in one app. It is a Progressive Web App (PWA): one
-website that installs as a real app on **Windows** and as a home-screen app on
-**iPhone/iPad**, works offline, and keeps everything on the device.
+A calendar, a task list and a notepad in one personal app. It is a Progressive
+Web App (PWA): one website that installs as a real app on **Windows** and as a
+home-screen app on **iPhone/iPad**, works offline, and keeps everything on the
+device — with optional sync between them.
 
 The hamburger button (☰) at the top left opens a dropdown for switching between
-**Calendar** and **Notes**.
+**Today**, **Calendar**, **Tasks** and **Notes**.
 
 ## Features
 
+**Today** — the home screen
+- Today's events, anything due or overdue, and your most recent notes on one page.
+- One search box across *everything*: events, tasks and notes at once. Hits open
+  straight into the right editor.
+- Add an event, task or note without leaving the screen.
+
 **Calendar**
 - Month grid with today highlighted; ‹ › to page through months, **Today** to jump back.
-- Tap a day to see everything on it; **Add event** for a title, date, optional
-  time and details. Untimed events show as "All day".
-- Tap an event to edit or delete it. Days with events show their first few
-  entries on desktop and dots on a phone.
+- **Add event** for a title, date, optional time and details. Untimed events show
+  as "All day".
+- **Repeating events** — daily, weekly, monthly or yearly, with an optional end
+  date. Editing or deleting one asks whether you mean *this day* or *the whole
+  series*, so moving a single standup doesn't disturb the rest.
+- Tasks due on a day appear on the grid in orange, and under the day's schedule.
+
+**Tasks**
+- Type in the quick-add box and press Enter, or use **New task** for a due date
+  and notes.
+- Due-date shortcuts: Today, Tomorrow, Next week.
+- Overdue items are flagged in red; finished ones sink to the bottom and can be
+  cleared in one go.
+- The number due today shows next to Today and Tasks in the menu, and on the app
+  icon itself where the platform supports badges.
 
 **Notes**
 - Create, edit and delete notes; the editor saves as you type.
-- Search across every title and body.
+- **Pin** the ones you keep coming back to, and **tag** them — the tag chips
+  above the list filter it.
 - A note left completely blank is discarded instead of cluttering the list.
 
-**Both**
+**Everywhere**
 - Optional **sync**: type on the PC, see it on the phone (setup below).
 - Works with no connection at all once it has loaded once.
 - Light and dark themes follow the system setting.
@@ -80,7 +99,7 @@ other way round) without touching a file.
 
 It syncs through a free [Supabase](https://supabase.com) project **you own** —
 there is no server of mine in the middle, and your data sits in your own
-database.
+database. Events, tasks and notes all travel the same way.
 
 **Setting it up** (about five minutes, once):
 
@@ -104,6 +123,8 @@ database.
   open the app, switch back to it, or every 15 seconds while it is in front.
 - Offline edits queue up and go out when the connection returns.
 - Deletes are tracked, so deleting on one device does not come back from the other.
+- A repeating event syncs as the single rule it is, not as hundreds of copies;
+  skipping one occurrence syncs too.
 - Conflicts resolve last-write-wins per item, using device clocks. Editing the
   *same* note on two devices at once keeps the later save and drops the earlier
   one; separate items never conflict.
@@ -127,13 +148,15 @@ Consequences worth knowing:
 ## Project layout
 
 ```
-index.html              markup for both views, the menu and the dialogs
+index.html              markup for all four views, the menu and the dialogs
 css/app.css             all styling, including the light/dark palette
-js/store.js             localStorage data layer for events and notes
+js/store.js             data layer: events, tasks, notes, recurrence, search
 js/calendar.js          month grid, day panel, event editor
-js/notes.js             note list, search, note editor
+js/tasks.js             task list, task editor, shared task-row renderer
+js/notes.js             note list, tags, note editor
+js/today.js             the Today screen and cross-app search
 js/sync.js              optional Supabase sync: auth, pull/push, merge
-js/app.js               menu, view switching, sync panel, backups, service worker
+js/app.js               menu, view switching, badge, sync panel, backups
 sw.js                   offline cache for the app shell
 manifest.webmanifest    name, icons, colours, Windows jump-list shortcuts
 icons/                  generated PNG icons (Windows tiles, iOS home screen)
