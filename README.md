@@ -91,6 +91,9 @@ database.
 3. In **Project Settings → API**, copy the **Project URL** and the **anon public**
    key into the app's Sync panel, then **Save**.
 4. **Create account** with any email and password. That account is yours alone.
+   New projects have *Confirm email* switched on, so Supabase emails you a link
+   first — click it, then **Sign in**. (To skip that, turn off
+   **Authentication → Sign In / Providers → Confirm email** in the dashboard.)
 5. On the other device, open the app, paste the same URL and key, and **Sign in**
    with the same email. Both devices converge within a second or two.
 
