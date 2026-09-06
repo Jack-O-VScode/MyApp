@@ -1,6 +1,6 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v5';
+var CACHE = 'calendar-notes-v6';
 
 var SHELL = [
   './',
@@ -12,6 +12,7 @@ var SHELL = [
   'js/today.js',
   'js/transfers.js',
   'js/notes.js',
+  'js/reminders.js',
   'js/sync.js',
   'js/app.js',
   'manifest.webmanifest',
@@ -84,4 +85,46 @@ self.addEventListener('fetch', function (event) {
       return cached || network;
     })
   );
+});
+
+
+/* ------------------------------------------------------------- reminders -- */
+
+// A push arrives whether or not the app is open, so everything the notification
+// needs travels in the payload.
+self.addEventListener('push', function (event) {
+  var data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (err) {
+    data = { title: 'Reminder', body: event.data ? event.data.text() : '' };
+  }
+
+  event.waitUntil(self.registration.showNotification(data.title || 'Reminder', {
+    body: data.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    // One notification per reminder, so a re-send replaces rather than stacks.
+    tag: data.tag || data.id || undefined,
+    data: { url: data.url || './' }
+  }));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  var target = (event.notification.data && event.notification.data.url) || './';
+
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then(function (windows) {
+      for (var i = 0; i < windows.length; i++) {
+        if ('focus' in windows[i]) {
+          if ('navigate' in windows[i] && target.indexOf('#') === 0) {
+            windows[i].navigate(new URL(target, self.location.href).href).catch(function () {});
+          }
+          return windows[i].focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+      return null;
+    }));
 });

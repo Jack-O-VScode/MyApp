@@ -48,6 +48,11 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 - A courier, not a filing cabinet: everything is deleted 24 hours after it is
   sent, collected or not, and **Remove** clears one sooner.
 
+**Reminders** (optional, extra setup)
+- Per-event reminders, from "when it starts" to a day before.
+- One daily summary of what is due, instead of a ping per task.
+- They arrive with the app closed, on iPhone, iPad and Windows alike.
+
 **Everywhere**
 - Optional **sync**: type on the PC, see it on the phone (setup below).
 - Works with no connection at all once it has loaded once.
@@ -178,6 +183,41 @@ create policy "own transfer files" on storage.objects
     bucket_id = 'transfers'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+-- Reminders: instants the app has worked out, and the devices to notify.
+create table if not exists public.push_subscriptions (
+  endpoint   text primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  p256dh     text not null,
+  auth       text not null,
+  label      text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "own devices" on public.push_subscriptions;
+create policy "own devices" on public.push_subscriptions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table if not exists public.reminders (
+  user_id  uuid not null references auth.users(id) on delete cascade,
+  id       text not null,
+  fire_at  timestamptz not null,
+  title    text not null,
+  body     text,
+  url      text,
+  sent_at  timestamptz,
+  primary key (user_id, id)
+);
+
+alter table public.reminders enable row level security;
+
+drop policy if exists "own reminders" on public.reminders;
+create policy "own reminders" on public.reminders
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists reminders_pending
+  on public.reminders (fire_at) where sent_at is null;
 ```
 
 The same SQL is inside the app, with a **Copy** button:
@@ -263,6 +303,115 @@ Home Screen* on iOS.
 - Any number of devices works — they all sign in with the same email.
 - **Disconnect** stops syncing on that device and leaves its data in place.
 
+## Reminders: the extra setup
+
+Reminders are the one feature that needs something running on a schedule, so
+they take a few more steps than the rest. Everything else works without them.
+
+**How it fits together:** the app works out exactly when each reminder should
+fire — including the next occurrence of a repeating event — and writes those
+instants to a `reminders` table. A small function in your project wakes once a
+minute, asks "what is due?", and sends it. No recurrence logic on the server.
+
+### 1. Tables
+
+Already included in the setup SQL in the previous section (`push_subscriptions`
+and `reminders`). If you ran that block before reminders existed, run it again —
+it is safe to repeat.
+
+### 2. Keys
+
+Push needs a VAPID key pair: the public half identifies your sender to the
+browser, the private half stays on the server. Generate a pair with:
+
+```
+npx web-push generate-vapid-keys
+```
+
+or ask me and I will generate one for you.
+
+### 3. Deploy the function
+
+The function lives at `supabase/functions/send-reminders/index.ts`.
+
+**From the dashboard** (no tools to install): Supabase → **Edge Functions** →
+**Deploy a new function** → name it `send-reminders`, paste the file's contents,
+and turn **off** "Verify JWT" so the scheduler can reach it.
+
+**Or with the CLI:**
+
+```
+supabase functions deploy send-reminders --no-verify-jwt
+```
+
+### 4. Secrets
+
+Under **Edge Functions → Secrets** (or `supabase secrets set NAME=value`):
+
+| Name | Value |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | the public half of the pair |
+| `VAPID_PRIVATE_KEY` | the private half — only here, never in the app |
+| `VAPID_SUBJECT` | `mailto:` and your email address |
+| `CRON_SECRET` | any long random string; the scheduler sends it back |
+
+### 5. Schedule it
+
+In the SQL Editor, with your own project ref and `CRON_SECRET` filled in:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.unschedule('send-reminders')
+  where exists (select 1 from cron.job where jobname = 'send-reminders');
+
+select cron.schedule('send-reminders', '* * * * *', $$
+  select net.http_post(
+    url := 'https://YOUR-PROJECT-REF.supabase.co/functions/v1/send-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cron-key', 'YOUR-CRON-SECRET'
+    ),
+    body := '{}'::jsonb
+  );
+$$);
+```
+
+Supabase's dashboard also has a **Cron** section that can schedule the same call
+if you prefer clicking to SQL.
+
+### 6. Turn them on, per device
+
+Menu → **Reminders**, paste the **public** key, then **Turn on here**. Each
+device needs its own permission — a phone and a PC do not share one. On iPhone
+and iPad the app must be on the Home Screen first; Safari does not allow push to
+a page in a tab.
+
+Then **Send a test**: it writes a reminder fifteen seconds out, so if the
+notification arrives, the whole chain works.
+
+### What you get
+
+- **Per event**, opted in one at a time: none, at the start, or 10 / 30 minutes,
+  1 / 2 hours, or a day before. New events pick up whatever default you set.
+- **One daily summary** of what is due, at a time you choose, rather than a
+  separate ping per task. Today's summary counts anything overdue.
+- An all-day event has no clock time of its own, so its reminder uses the same
+  time as the daily summary.
+
+### If nothing arrives
+
+- Check **Edge Functions → Logs** in Supabase; the function reports how many
+  reminders it found and sent each run.
+- `select * from cron.job_run_details order by start_time desc limit 5;` shows
+  whether the schedule is actually firing.
+- A blocked notification permission is silent. Check the site's permissions in
+  the browser, or in iOS Settings → Notifications under the app's name.
+- Reminders only exist while the schedule is fresh: the app rewrites it when
+  data changes and when you open it, so a device that has not been opened for
+  weeks contributes nothing new.
+
 ## Transfer: how it behaves
 
 - Files go to a private `transfers` bucket in your project, under a folder named
@@ -301,6 +450,8 @@ js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
 js/today.js             the Today screen and cross-app search
 js/transfers.js         device-to-device file transfer via Supabase Storage
+js/reminders.js         works out when reminders fire and keeps the table current
+supabase/functions/     the scheduled sender that turns those rows into pushes
 js/sync.js              optional Supabase sync: auth, pull/push, merge
 js/app.js               menu, view switching, badge, sync panel, backups
 sw.js                   offline cache for the app shell

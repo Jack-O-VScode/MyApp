@@ -362,6 +362,9 @@ window.CalendarView = (function () {
     els.repeat.value = editingMaster ? (editingMaster.repeat || '') : '';
     els.until.value = editingMaster ? (editingMaster.repeatUntil || '') : '';
     renderSwatches(editingMaster ? (editingMaster.color || '') : '');
+    els.remind.value = String(editingMaster && typeof editingMaster.remind === 'number'
+      ? editingMaster.remind
+      : Store.getSettings().defaultRemind);
     els.eventDelete.hidden = !editingMaster;
     els.eventError.hidden = true;
 
@@ -408,6 +411,7 @@ window.CalendarView = (function () {
       time: els.eventTime.value || '',
       details: els.eventDetails.value.trim(),
       color: chosenColor(),
+      remind: Number(els.remind.value),
       repeat: els.repeat.value,
       repeatUntil: els.repeat.value ? els.until.value : '',
       // A new rule makes the old list of skipped days meaningless.
@@ -459,6 +463,7 @@ window.CalendarView = (function () {
       until: document.getElementById('event-until'),
       scope: document.getElementById('event-scope'),
       colors: document.getElementById('event-colors'),
+      remind: document.getElementById('event-remind'),
       agenda: document.getElementById('agenda'),
       agendaBody: document.getElementById('agenda-body'),
       monthLayout: document.getElementById('month-layout'),

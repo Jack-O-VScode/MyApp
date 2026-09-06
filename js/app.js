@@ -311,6 +311,126 @@
     renderSync();
   }
 
+  /* ------------------------------------------------------------ reminders -- */
+
+  var remEls = {};
+
+  function reminderStateText() {
+    var settings = Store.getSettings();
+    if (!Reminders.supported()) return 'This browser cannot show notifications.';
+    if (!Sync.getStatus().signedIn) return 'Turn on sync first — reminders use the same project.';
+    if (!settings.vapidPublicKey) return 'Paste your project’s public reminder key below.';
+    if (Reminders.permission() === 'denied') {
+      return 'Notifications are blocked for this site. Allow them in your browser settings.';
+    }
+    return settings.remindersOn
+      ? 'On for this device.'
+      : 'Ready — turn them on for this device.';
+  }
+
+  function renderReminders() {
+    var settings = Store.getSettings();
+    var on = settings.remindersOn && Reminders.permission() === 'granted';
+
+    remEls.chip.textContent = on ? 'On' : 'Off';
+    remEls.chip.dataset.state = on ? 'ok' : '';
+    remEls.state.textContent = reminderStateText();
+    remEls.digestTime.value = settings.digestTime;
+    remEls.digestOn.checked = !!settings.digestOn;
+    remEls.defaultRemind.value = String(settings.defaultRemind);
+    remEls.key.value = settings.vapidPublicKey || '';
+    remEls.enable.hidden = on;
+    remEls.disable.hidden = !on;
+    remEls.test.hidden = !on;
+  }
+
+  function reminderError(message) {
+    remEls.error.textContent = message || '';
+    remEls.error.hidden = !message;
+  }
+
+  function openReminders() {
+    reminderError('');
+    renderReminders();
+    remEls.modal.hidden = false;
+  }
+
+  function setupReminders() {
+    remEls = {
+      modal: document.getElementById('reminders-modal'),
+      chip: document.getElementById('reminders-chip'),
+      state: document.getElementById('reminders-state'),
+      error: document.getElementById('reminders-error'),
+      key: document.getElementById('reminders-key'),
+      digestTime: document.getElementById('reminders-digest-time'),
+      digestOn: document.getElementById('reminders-digest-on'),
+      defaultRemind: document.getElementById('reminders-default'),
+      enable: document.getElementById('reminders-enable'),
+      disable: document.getElementById('reminders-disable'),
+      test: document.getElementById('reminders-test')
+    };
+
+    remEls.key.addEventListener('change', function () {
+      Store.saveSettings({ vapidPublicKey: this.value.trim() });
+      renderReminders();
+    });
+    remEls.digestTime.addEventListener('change', function () {
+      Store.saveSettings({ digestTime: this.value || '08:00' });
+    });
+    remEls.digestOn.addEventListener('change', function () {
+      Store.saveSettings({ digestOn: this.checked });
+    });
+    remEls.defaultRemind.addEventListener('change', function () {
+      Store.saveSettings({ defaultRemind: Number(this.value) });
+    });
+
+    remEls.enable.addEventListener('click', function () {
+      var button = this;
+      reminderError('');
+      busy(button, true, 'Asking…');
+      Reminders.enable().then(function () {
+        toast('Reminders are on for this device.');
+      }).catch(function (err) {
+        reminderError(err.message);
+      }).then(function () {
+        busy(button, false);
+        renderReminders();
+      });
+    });
+
+    remEls.disable.addEventListener('click', function () {
+      Reminders.disable().then(function () {
+        toast('Reminders are off for this device.');
+        renderReminders();
+      });
+    });
+
+    remEls.test.addEventListener('click', function () {
+      var button = this;
+      reminderError('');
+      busy(button, true, 'Sending…');
+      Reminders.sendTest().then(function () {
+        toast('Test queued — it should arrive within a minute.');
+      }).catch(function (err) {
+        reminderError(err.message);
+      }).then(function () {
+        busy(button, false);
+      });
+    });
+
+    Array.prototype.forEach.call(remEls.modal.querySelectorAll('[data-reminders-close]'), function (button) {
+      button.addEventListener('click', function () { remEls.modal.hidden = true; });
+    });
+    remEls.modal.addEventListener('mousedown', function (clickEvent) {
+      if (clickEvent.target === remEls.modal) remEls.modal.hidden = true;
+    });
+
+    Store.subscribe(renderReminders);
+    Sync.subscribe(renderReminders);
+    Reminders.init();
+    renderReminders();
+  }
+
   /* --------------------------------------------------------------- counts -- */
 
   // Outstanding work shows up in two places: next to Today and Tasks in the
@@ -357,6 +477,9 @@
     }
 
     switch (item.dataset.action) {
+      case 'reminders':
+        openReminders();
+        break;
       case 'sync':
         openSync();
         break;
@@ -395,6 +518,7 @@
     TodayView.init();
     TransfersView.init();
     setupSync();
+    setupReminders();
 
     menuButton.addEventListener('click', function () {
       if (menuIsOpen()) closeMenu(true);
@@ -431,6 +555,7 @@
       if (menuIsOpen()) closeMenu(true);
       else if (!help.hidden) help.hidden = true;
       else if (!syncEls.modal.hidden) syncEls.modal.hidden = true;
+      else if (!remEls.modal.hidden) remEls.modal.hidden = true;
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
       else if (TasksView.isModalOpen()) TasksView.closeModal();
       else if (NotesView.isEditorOpen()) NotesView.closeEditor();

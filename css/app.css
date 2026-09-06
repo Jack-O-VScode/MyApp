@@ -866,6 +866,16 @@ main {
 .field select:disabled { opacity: .55; cursor: not-allowed; }
 .check-count.is-complete { background: var(--brand-soft); color: var(--brand); }
 
+/* ------------------------------------------------------------- reminders -- */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  font-size: .94rem;
+}
+.toggle-row input { width: 18px; height: 18px; accent-color: var(--brand); }
+
 /* ---------------------------------------------------------------- modals -- */
 .modal {
   position: fixed;

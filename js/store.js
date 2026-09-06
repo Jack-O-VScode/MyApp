@@ -20,7 +20,7 @@ window.Store = (function () {
   var TOMBSTONE_TTL = 90 * 24 * 60 * 60 * 1000;   // forget deletions after 90 days
   var LISTS = { event: 'events', task: 'tasks', note: 'notes' };
 
-  var state = { events: [], tasks: [], notes: [] };
+  var state = { events: [], tasks: [], notes: [], settings: null };
   var listeners = [];
   var available = true;
 
@@ -85,6 +85,8 @@ window.Store = (function () {
       if (typeof item.repeat !== 'string') item.repeat = '';
       if (typeof item.repeatUntil !== 'string') item.repeatUntil = '';
       if (typeof item.color !== 'string') item.color = '';
+      // Minutes before the event; -1 means "no reminder".
+      if (typeof item.remind !== 'number') item.remind = -1;
       if (!Array.isArray(item.skips)) item.skips = [];
     } else if (kind === 'task') {
       if (typeof item.done !== 'boolean') item.done = false;
@@ -111,6 +113,7 @@ window.Store = (function () {
           state[LISTS[kind]] = list.map(function (item) { return normalise(item, kind); });
         }
       });
+      if (parsed.settings && typeof parsed.settings === 'object') state.settings = parsed.settings;
     } catch (err) {
       // Private mode, disabled storage or corrupt data: run in memory instead
       // of blowing up.
@@ -193,6 +196,8 @@ window.Store = (function () {
 
   var REPEATS = ['daily', 'weekly', 'monthly', 'yearly'];
   var COLORS = ['blue', 'green', 'orange', 'red', 'purple', 'grey'];
+  // Minutes before an event. -1 is "none"; 0 is "when it starts".
+  var REMIND_CHOICES = [-1, 0, 10, 30, 60, 120, 1440];
 
   // The next date a rule lands on after `dateKey`. `anchorDay` keeps a monthly
   // rule on its original day: without it, the 31st would slip to the 28th in
@@ -246,6 +251,7 @@ window.Store = (function () {
       time: master.time || '',
       details: master.details || '',
       color: master.color || '',
+      remind: typeof master.remind === 'number' ? master.remind : -1,
       repeat: master.repeat,
       repeatUntil: master.repeatUntil,
       createdAt: master.createdAt,
@@ -347,6 +353,7 @@ window.Store = (function () {
       time: input.time || '',
       details: input.details || '',
       color: COLORS.indexOf(input.color) === -1 ? '' : input.color,
+      remind: REMIND_CHOICES.indexOf(Number(input.remind)) === -1 ? -1 : Number(input.remind),
       repeat: REPEATS.indexOf(input.repeat) === -1 ? '' : input.repeat,
       repeatUntil: isKey(input.repeatUntil) ? input.repeatUntil : ''
     };
@@ -603,6 +610,42 @@ window.Store = (function () {
     remove('note', id);
   }
 
+  /* ----------------------------------------------------------- settings -- */
+
+  // One synced record, so the digest time and default lead are the same on
+  // every device. Anything device-specific (a push subscription) stays out of
+  // here and lives only on the device it belongs to.
+  var SETTINGS_ID = 'prefs';
+  var DEFAULT_SETTINGS = {
+    remindersOn: false,
+    digestTime: '08:00',    // when the daily "what's due" summary fires
+    digestOn: true,
+    defaultRemind: -1       // pre-selected reminder for a new event
+  };
+
+  function getSettings() {
+    var stored = state.settings || {};
+    return Object.assign({}, DEFAULT_SETTINGS, stored.values || {});
+  }
+
+  function saveSettings(patch) {
+    var current = getSettings();
+    var next = Object.assign({}, current, patch || {});
+    var changed = Object.keys(next).some(function (key) { return next[key] !== current[key]; });
+    if (!changed) return next;
+
+    state.settings = {
+      id: SETTINGS_ID,
+      values: next,
+      createdAt: (state.settings && state.settings.createdAt) || now(),
+      updatedAt: now(),
+      deleted: false,
+      dirty: true
+    };
+    commit();
+    return next;
+  }
+
   /* ---------------------------------------------------------- checklists -- */
 
   var CHECK_LINE = /^(\s*)-\s\[( |x|X)\]\s?(.*)$/;
@@ -664,6 +707,7 @@ window.Store = (function () {
       payload = {
         title: item.title, date: item.date, time: item.time || '',
         details: item.details || '', color: item.color || '',
+        remind: typeof item.remind === 'number' ? item.remind : -1,
         repeat: item.repeat || '', repeatUntil: item.repeatUntil || '',
         skips: item.skips || []
       };
@@ -705,6 +749,7 @@ window.Store = (function () {
       base.time = String(payload.time || '');
       base.details = String(payload.details || '');
       base.color = String(payload.color || '');
+      base.remind = typeof payload.remind === 'number' ? payload.remind : -1;
       base.repeat = String(payload.repeat || '');
       base.repeatUntil = String(payload.repeatUntil || '');
       base.skips = Array.isArray(payload.skips) ? payload.skips.slice() : [];
@@ -726,6 +771,17 @@ window.Store = (function () {
   }
 
   // Everything changed locally and not yet accepted by the server.
+  function settingsRecord() {
+    return {
+      id: SETTINGS_ID,
+      kind: 'setting',
+      payload: { values: getSettings() },
+      deleted: false,
+      created_at: state.settings.createdAt,
+      updated_at: state.settings.updatedAt
+    };
+  }
+
   function pendingRecords() {
     var out = [];
     Object.keys(LISTS).forEach(function (kind) {
@@ -733,6 +789,7 @@ window.Store = (function () {
         if (item.dirty) out.push(toRecord(item, kind));
       });
     });
+    if (state.settings && state.settings.dirty) out.push(settingsRecord());
     return out;
   }
 
@@ -750,6 +807,11 @@ window.Store = (function () {
         }
       });
     });
+    if (state.settings && state.settings.dirty &&
+        byId[SETTINGS_ID] === state.settings.updatedAt) {
+      state.settings.dirty = false;
+      touched = true;
+    }
     if (touched) write();
   }
 
@@ -757,6 +819,7 @@ window.Store = (function () {
     Object.keys(LISTS).forEach(function (kind) {
       listFor(kind).forEach(function (item) { item.dirty = true; });
     });
+    if (state.settings) state.settings.dirty = true;
     write();
   }
 
@@ -769,6 +832,23 @@ window.Store = (function () {
   function applyRemote(records) {
     var applied = 0;
     records.forEach(function (record) {
+      if (record.kind === 'setting') {
+        var incomingStamp = Number(record.updated_at) || 0;
+        var mine = state.settings ? state.settings.updatedAt : -1;
+        if (incomingStamp > mine) {
+          state.settings = {
+            id: SETTINGS_ID,
+            values: Object.assign({}, DEFAULT_SETTINGS, (record.payload || {}).values || {}),
+            createdAt: Number(record.created_at) || incomingStamp,
+            updatedAt: incomingStamp,
+            deleted: false,
+            dirty: false
+          };
+          applied++;
+        }
+        return;
+      }
+
       var list = listFor(record.kind);
       if (!list || !record.id) return;
 
@@ -803,7 +883,8 @@ window.Store = (function () {
       exportedAt: new Date().toISOString(),
       events: live(state.events),
       tasks: live(state.tasks),
-      notes: live(state.notes)
+      notes: live(state.notes),
+      settings: getSettings()
     };
   }
 
@@ -830,6 +911,10 @@ window.Store = (function () {
     }
     var added = 0;
     var updated = 0;
+
+    if (payload.settings && typeof payload.settings === 'object') {
+      saveSettings(payload.settings);
+    }
 
     kinds.forEach(function (kind) {
       var list = listFor(kind);
@@ -885,6 +970,9 @@ window.Store = (function () {
     checklistProgress: checklistProgress,
     cycleChecklistLine: cycleChecklistLine,
     getTask: function (id) { return find('task', id); },
+    getSettings: getSettings,
+    saveSettings: saveSettings,
+    remindChoices: function () { return REMIND_CHOICES.slice(); },
     allNotes: allNotes,
     allTags: allTags,
     getNote: getNote,

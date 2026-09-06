@@ -57,6 +57,11 @@
       <span>Transfer</span>
     </button>
     <hr class="menu-sep">
+    <button class="menu-item" role="menuitem" data-action="reminders">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg>
+      <span>Reminders</span>
+      <span id="reminders-chip" class="menu-chip">Off</span>
+    </button>
     <button class="menu-item" role="menuitem" data-action="sync">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11A8 8 0 0 0 6.3 6.3L4 8.5M4 13a8 8 0 0 0 13.7 4.7L20 15.5"/><path d="M4 4.5v4h4M20 19.5v-4h-4"/></svg>
       <span>Sync</span>
@@ -280,9 +285,23 @@
         <textarea id="event-details" name="details" rows="3" maxlength="2000" placeholder="Address, agenda, who's coming…"></textarea>
       </label>
 
-      <div class="field">
-        <span>Colour</span>
-        <div id="event-colors" class="swatches" role="radiogroup" aria-label="Event colour"></div>
+      <div class="field-row">
+        <div class="field">
+          <span>Colour</span>
+          <div id="event-colors" class="swatches" role="radiogroup" aria-label="Event colour"></div>
+        </div>
+        <label class="field">
+          <span>Remind me</span>
+          <select id="event-remind" name="remind">
+            <option value="-1">No reminder</option>
+            <option value="0">When it starts</option>
+            <option value="10">10 minutes before</option>
+            <option value="30">30 minutes before</option>
+            <option value="60">1 hour before</option>
+            <option value="120">2 hours before</option>
+            <option value="1440">1 day before</option>
+          </select>
+        </label>
       </div>
 
       <fieldset id="event-scope" class="scope" hidden>
@@ -372,6 +391,59 @@
   </label>
 </div>
 
+<!-- ----------------------------- Reminders --------------------------------- -->
+<div id="reminders-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="reminders-title" hidden>
+  <div class="modal-panel">
+    <h2 id="reminders-title">Reminders</h2>
+    <p id="reminders-state" class="sync-state"></p>
+    <p id="reminders-error" class="form-error" role="alert" hidden></p>
+
+    <section id="reminders-setup">
+      <p class="help-note">Notifications arrive even when the app is closed. They are sent by
+        a small scheduled function in your own Supabase project — see the setup guide for the
+        one-time deployment.</p>
+      <label class="field">
+        <span>Public reminder key <em>from your project</em></span>
+        <input id="reminders-key" type="text" placeholder="B…" autocomplete="off"
+               autocapitalize="none" spellcheck="false">
+      </label>
+    </section>
+
+    <div class="field-row">
+      <label class="field">
+        <span>Daily task summary at</span>
+        <input id="reminders-digest-time" type="time">
+      </label>
+      <label class="field">
+        <span>Default for new events</span>
+        <select id="reminders-default">
+          <option value="-1">No reminder</option>
+          <option value="0">When it starts</option>
+          <option value="10">10 minutes before</option>
+          <option value="30">30 minutes before</option>
+          <option value="60">1 hour before</option>
+          <option value="1440">1 day before</option>
+        </select>
+      </label>
+    </div>
+    <label class="toggle-row">
+      <input id="reminders-digest-on" type="checkbox">
+      <span>Send the daily summary of what is due</span>
+    </label>
+
+    <p class="help-note">Turn reminders on separately on each device — a phone and a PC
+      each need their own permission.</p>
+
+    <div class="modal-actions">
+      <button id="reminders-disable" class="button danger" type="button" hidden>Turn off here</button>
+      <span class="spacer"></span>
+      <button id="reminders-test" class="button" type="button" hidden>Send a test</button>
+      <button id="reminders-enable" class="button primary" type="button">Turn on here</button>
+      <button class="button" type="button" data-reminders-close>Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- -------------------------------- Sync ----------------------------------- -->
 <div id="sync-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sync-title" hidden>
   <div class="modal-panel">
@@ -453,7 +525,42 @@ create policy "own transfer files" on storage.objects
   with check (
     bucket_id = 'transfers'
     and (storage.foldername(name))[1] = auth.uid()::text
-  );</pre>
+  );
+-- Reminders: instants the app has worked out, and the devices to notify.
+create table if not exists public.push_subscriptions (
+  endpoint   text primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  p256dh     text not null,
+  auth       text not null,
+  label      text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "own devices" on public.push_subscriptions;
+create policy "own devices" on public.push_subscriptions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create table if not exists public.reminders (
+  user_id  uuid not null references auth.users(id) on delete cascade,
+  id       text not null,
+  fire_at  timestamptz not null,
+  title    text not null,
+  body     text,
+  url      text,
+  sent_at  timestamptz,
+  primary key (user_id, id)
+);
+
+alter table public.reminders enable row level security;
+
+drop policy if exists "own reminders" on public.reminders;
+create policy "own reminders" on public.reminders
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists reminders_pending
+  on public.reminders (fire_at) where sent_at is null;</pre>
         <p class="help-note">The anon key is meant to be public — row-level security above is
           what keeps your rows readable only by your own account.</p>
       </details>
@@ -536,6 +643,7 @@ create policy "own transfer files" on storage.objects
 <script src="js/today.js"></script>
 <script src="js/transfers.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/reminders.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
