@@ -33,8 +33,21 @@ window.TasksView = (function () {
     return '';
   }
 
+  // The due badge and the repeat marker share one line under the title.
+  function badgeRow(parent) {
+    var row = parent.querySelector('.task-badges');
+    if (!row) {
+      row = document.createElement('span');
+      row.className = 'task-badges';
+      parent.appendChild(row);
+    }
+    return row;
+  }
+
   // Shared by the Tasks list, the Today screen and the calendar day panel.
-  function buildRow(task) {
+  // `options.hideDueFor` drops the date badge when the list is already grouped
+  // under that date — but keeps it for an overdue task listed under today.
+  function buildRow(task, options) {
     var row = document.createElement('li');
     row.className = 'task-item' + (task.done ? ' is-done' : '');
 
@@ -58,11 +71,18 @@ window.TasksView = (function () {
     open.appendChild(title);
 
     var state = dueState(task);
-    if (task.due) {
+    var redundant = options && options.hideDueFor && task.due === options.hideDueFor;
+    if (task.due && !redundant) {
       var badge = document.createElement('span');
       badge.className = 'task-due' + (state ? ' is-' + state : '');
       badge.textContent = state === 'overdue' ? 'Overdue · ' + dueLabel(task) : dueLabel(task);
-      open.appendChild(badge);
+      badgeRow(open).appendChild(badge);
+    }
+    if (task.repeat) {
+      var repeat = document.createElement('span');
+      repeat.className = 'repeat-mark';
+      repeat.textContent = 'repeats';
+      badgeRow(open).appendChild(repeat);
     }
     if (task.details) {
       var details = document.createElement('span');
@@ -76,7 +96,7 @@ window.TasksView = (function () {
     return row;
   }
 
-  function fillList(node, tasks, emptyText) {
+  function fillList(node, tasks, emptyText, options) {
     node.innerHTML = '';
     if (!tasks.length) {
       var empty = document.createElement('li');
@@ -86,7 +106,7 @@ window.TasksView = (function () {
       return;
     }
     var fragment = document.createDocumentFragment();
-    tasks.forEach(function (task) { fragment.appendChild(buildRow(task)); });
+    tasks.forEach(function (task) { fragment.appendChild(buildRow(task, options)); });
     node.appendChild(fragment);
   }
 
@@ -95,7 +115,11 @@ window.TasksView = (function () {
     node.addEventListener('click', function (clickEvent) {
       var toggle = clickEvent.target.closest('[data-toggle]');
       if (toggle) {
-        Store.toggleTask(toggle.dataset.toggle);
+        var result = Store.toggleTask(toggle.dataset.toggle);
+        if (result && result.advancedTo && window.App && App.toast) {
+          App.toast('Done — next on ' + Store.fromKey(result.advancedTo)
+            .toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }));
+        }
         return;
       }
       var open = clickEvent.target.closest('[data-open]');
@@ -114,8 +138,10 @@ window.TasksView = (function () {
     els.title.value = task ? task.title : '';
     els.due.value = task ? task.due : (dueDate || '');
     els.details.value = task ? task.details : '';
+    els.repeat.value = task ? (task.repeat || '') : '';
     els.delete.hidden = !task;
     els.error.hidden = true;
+    syncRepeatField();
 
     els.modal.hidden = false;
     els.title.focus();
@@ -140,7 +166,8 @@ window.TasksView = (function () {
       id: editingId,
       title: title,
       due: els.due.value,
-      details: els.details.value.trim()
+      details: els.details.value.trim(),
+      repeat: els.repeat.value
     });
     closeEditor();
   }
@@ -150,6 +177,14 @@ window.TasksView = (function () {
     if (!window.confirm('Delete this task?')) return;
     Store.deleteTask(editingId);
     closeEditor();
+  }
+
+  // Repeating from nothing is meaningless, so the rule follows the due date.
+  function syncRepeatField() {
+    var hasDate = Store.isKey(els.due.value);
+    els.repeat.disabled = !hasDate;
+    if (!hasDate) els.repeat.value = '';
+    els.repeatField.classList.toggle('is-muted', !hasDate);
   }
 
   /* ------------------------------------------------------------- the view -- */
@@ -183,6 +218,8 @@ window.TasksView = (function () {
       title: document.getElementById('task-title'),
       due: document.getElementById('task-due'),
       details: document.getElementById('task-details'),
+      repeat: document.getElementById('task-repeat'),
+      repeatField: document.getElementById('task-repeat-field'),
       delete: document.getElementById('task-delete'),
       error: document.getElementById('task-error')
     };
@@ -230,7 +267,9 @@ window.TasksView = (function () {
       if (!chip) return;
       var offset = chip.dataset.due;
       els.due.value = offset === '' ? '' : Store.shiftKey(Store.todayKey(), Number(offset));
+      syncRepeatField();
     });
+    els.due.addEventListener('change', syncRepeatField);
 
     render();
   }

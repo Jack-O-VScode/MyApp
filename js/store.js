@@ -84,11 +84,14 @@ window.Store = (function () {
     if (kind === 'event') {
       if (typeof item.repeat !== 'string') item.repeat = '';
       if (typeof item.repeatUntil !== 'string') item.repeatUntil = '';
+      if (typeof item.color !== 'string') item.color = '';
       if (!Array.isArray(item.skips)) item.skips = [];
     } else if (kind === 'task') {
       if (typeof item.done !== 'boolean') item.done = false;
       if (typeof item.due !== 'string') item.due = '';
       if (typeof item.details !== 'string') item.details = '';
+      if (typeof item.repeat !== 'string') item.repeat = '';
+      if (typeof item.repeatDay !== 'number') item.repeatDay = 0;
     } else if (kind === 'note') {
       if (typeof item.pinned !== 'boolean') item.pinned = false;
       if (!Array.isArray(item.tags)) item.tags = [];
@@ -189,6 +192,31 @@ window.Store = (function () {
   /* ---------------------------------------------------------- recurrence -- */
 
   var REPEATS = ['daily', 'weekly', 'monthly', 'yearly'];
+  var COLORS = ['blue', 'green', 'orange', 'red', 'purple', 'grey'];
+
+  // The next date a rule lands on after `dateKey`. `anchorDay` keeps a monthly
+  // rule on its original day: without it, the 31st would slip to the 28th in
+  // February and stay there.
+  function nextDate(dateKey, repeat, anchorDay) {
+    var date = fromKey(dateKey);
+    if (repeat === 'daily' || repeat === 'weekly') {
+      date.setDate(date.getDate() + (repeat === 'daily' ? 1 : 7));
+      return toKey(date);
+    }
+    var day = anchorDay || date.getDate();
+    if (repeat === 'monthly') {
+      var year = date.getFullYear();
+      var month = date.getMonth() + 1;
+      var lastDay = new Date(year, month + 1, 0).getDate();
+      return toKey(new Date(year, month, Math.min(day, lastDay)));
+    }
+    if (repeat === 'yearly') {
+      var nextYear = date.getFullYear() + 1;
+      var lastInMonth = new Date(nextYear, date.getMonth() + 1, 0).getDate();
+      return toKey(new Date(nextYear, date.getMonth(), Math.min(day, lastInMonth)));
+    }
+    return dateKey;
+  }
 
   function repeatLabel(item) {
     switch (item.repeat) {
@@ -217,6 +245,7 @@ window.Store = (function () {
       title: master.title,
       time: master.time || '',
       details: master.details || '',
+      color: master.color || '',
       repeat: master.repeat,
       repeatUntil: master.repeatUntil,
       createdAt: master.createdAt,
@@ -317,6 +346,7 @@ window.Store = (function () {
       date: input.date,
       time: input.time || '',
       details: input.details || '',
+      color: COLORS.indexOf(input.color) === -1 ? '' : input.color,
       repeat: REPEATS.indexOf(input.repeat) === -1 ? '' : input.repeat,
       repeatUntil: isKey(input.repeatUntil) ? input.repeatUntil : ''
     };
@@ -409,10 +439,14 @@ window.Store = (function () {
 
   function saveTask(input) {
     var stamp = now();
+    var repeat = REPEATS.indexOf(input.repeat) === -1 ? '' : input.repeat;
     var fields = {
       title: input.title,
       due: isKey(input.due) ? input.due : '',
-      details: input.details || ''
+      details: input.details || '',
+      // A rule with no date has nothing to repeat from.
+      repeat: isKey(input.due) ? repeat : '',
+      repeatDay: isKey(input.due) && repeat ? fromKey(input.due).getDate() : 0
     };
     if (input.id) {
       var task = find('task', input.id);
@@ -430,14 +464,33 @@ window.Store = (function () {
     return created;
   }
 
+  // Ticking a repeating task does not finish it — it moves to its next date.
+  // Storing one row that rolls forward beats generating an occurrence per week
+  // and leaving a trail of completed copies behind.
   function toggleTask(id) {
     var task = find('task', id);
     if (!task) return null;
+
+    if (task.repeat && task.due && !task.done) {
+      var today = todayKey();
+      var next = nextDate(task.due, task.repeat, task.repeatDay);
+      // An overdue daily task should land on tomorrow, not on last Tuesday.
+      var guard = 0;
+      while (next <= today && guard++ < 500) {
+        next = nextDate(next, task.repeat, task.repeatDay);
+      }
+      task.due = next;
+      task.doneAt = now();
+      touch(task);
+      commit();
+      return { task: task, advancedTo: next };
+    }
+
     task.done = !task.done;
     task.doneAt = task.done ? now() : 0;
     touch(task);
     commit();
-    return task;
+    return { task: task, advancedTo: '' };
   }
 
   function deleteTask(id) {
@@ -550,6 +603,35 @@ window.Store = (function () {
     remove('note', id);
   }
 
+  /* ---------------------------------------------------------- checklists -- */
+
+  var CHECK_LINE = /^(\s*)-\s\[( |x|X)\]\s?(.*)$/;
+
+  // Notes keep checklists as plain "- [ ]" lines, so the body stays readable
+  // text everywhere else — in search, in a backup, in another editor.
+  function checklistProgress(body) {
+    var done = 0;
+    var total = 0;
+    String(body || '').split('\n').forEach(function (line) {
+      var match = CHECK_LINE.exec(line);
+      if (!match) return;
+      total++;
+      if (match[2] !== ' ') done++;
+    });
+    return total ? { done: done, total: total } : null;
+  }
+
+  // Cycles one line: plain -> unticked -> ticked -> plain.
+  function cycleChecklistLine(line) {
+    var match = CHECK_LINE.exec(line);
+    if (!match) {
+      var indent = /^(\s*)/.exec(line)[1];
+      return indent + '- [ ] ' + line.slice(indent.length);
+    }
+    if (match[2] === ' ') return match[1] + '- [x] ' + match[3];
+    return match[1] + match[3];
+  }
+
   /* -------------------------------------------------------------- search -- */
 
   // One query across everything, for the search box on the Today screen.
@@ -581,13 +663,15 @@ window.Store = (function () {
     if (kind === 'event') {
       payload = {
         title: item.title, date: item.date, time: item.time || '',
-        details: item.details || '', repeat: item.repeat || '',
-        repeatUntil: item.repeatUntil || '', skips: item.skips || []
+        details: item.details || '', color: item.color || '',
+        repeat: item.repeat || '', repeatUntil: item.repeatUntil || '',
+        skips: item.skips || []
       };
     } else if (kind === 'task') {
       payload = {
         title: item.title, due: item.due || '', details: item.details || '',
-        done: !!item.done, doneAt: item.doneAt || 0
+        done: !!item.done, doneAt: item.doneAt || 0,
+        repeat: item.repeat || '', repeatDay: item.repeatDay || 0
       };
     } else {
       payload = {
@@ -620,6 +704,7 @@ window.Store = (function () {
       base.date = String(payload.date || '');
       base.time = String(payload.time || '');
       base.details = String(payload.details || '');
+      base.color = String(payload.color || '');
       base.repeat = String(payload.repeat || '');
       base.repeatUntil = String(payload.repeatUntil || '');
       base.skips = Array.isArray(payload.skips) ? payload.skips.slice() : [];
@@ -629,6 +714,8 @@ window.Store = (function () {
       base.details = String(payload.details || '');
       base.done = !!payload.done;
       base.doneAt = Number(payload.doneAt) || 0;
+      base.repeat = String(payload.repeat || '');
+      base.repeatDay = Number(payload.repeatDay) || 0;
     } else {
       base.title = String(payload.title || '');
       base.body = String(payload.body || '');
@@ -793,6 +880,10 @@ window.Store = (function () {
     toggleTask: toggleTask,
     deleteTask: deleteTask,
     clearDoneTasks: clearDoneTasks,
+    nextDate: nextDate,
+    colors: function () { return COLORS.slice(); },
+    checklistProgress: checklistProgress,
+    cycleChecklistLine: cycleChecklistLine,
     getTask: function (id) { return find('task', id); },
     allNotes: allNotes,
     allTags: allTags,

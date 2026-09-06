@@ -470,6 +470,9 @@
     }
   }
 
+  // The task list uses this to confirm a repeating task moved on.
+  window.App = { toast: function (message) { toast(message); } };
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

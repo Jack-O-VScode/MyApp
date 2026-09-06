@@ -17,6 +17,7 @@ window.CalendarView = (function () {
   var occurrenceDate = '';
   var lastFocused = null;
 
+  var mode = 'month';
   var narrow = window.matchMedia('(max-width: 560px)');
 
   /* ---------------------------------------------------------- formatting -- */
@@ -113,6 +114,7 @@ window.CalendarView = (function () {
       events.slice(0, MAX_CHIPS).forEach(function (item) {
         var chip = document.createElement('span');
         chip.className = 'day-chip';
+        if (item.color) chip.dataset.color = item.color;
         chip.textContent = item.time ? formatTime(item.time) + ' ' + item.title : item.title;
         cell.appendChild(chip);
       });
@@ -172,6 +174,7 @@ window.CalendarView = (function () {
         button.type = 'button';
         button.className = 'event-item';
         button.dataset.id = item.id;
+        if (item.color) button.dataset.color = item.color;
 
         var time = document.createElement('span');
         time.className = 'event-time';
@@ -208,15 +211,125 @@ window.CalendarView = (function () {
     // "what is happening" and "what do I owe" for the selected date.
     var tasks = Store.tasksOn(selectedDate);
     els.dayTasksWrap.hidden = !tasks.length;
-    if (tasks.length) TasksView.fillList(els.dayTasks, tasks, '');
+    if (tasks.length) TasksView.fillList(els.dayTasks, tasks, '', { hideDueFor: selectedDate });
+  }
+
+  // Three weeks of everything, in one list. A month grid answers "what does
+  // this month look like"; this answers "what is coming".
+  function renderAgenda() {
+    var start = Store.todayKey();
+    var end = Store.shiftKey(start, 20);
+
+    var byDate = {};
+    Store.eventsInRange(start, end).forEach(function (item) {
+      (byDate[item.date] = byDate[item.date] || { events: [], tasks: [] }).events.push(item);
+    });
+    Store.allTasks({ openOnly: true }).forEach(function (task) {
+      if (!task.due) return;
+      // Anything already overdue belongs on today, not in the past.
+      var key = task.due < start ? start : task.due;
+      if (key > end) return;
+      (byDate[key] = byDate[key] || { events: [], tasks: [] }).tasks.push(task);
+    });
+
+    els.agendaBody.innerHTML = '';
+    var days = Object.keys(byDate).sort();
+    if (!days.length) {
+      var empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = 'Nothing in the next three weeks.';
+      els.agendaBody.appendChild(empty);
+      return;
+    }
+
+    days.forEach(function (key) {
+      var group = document.createElement('section');
+      group.className = 'agenda-day';
+
+      var heading = document.createElement('h3');
+      heading.className = 'agenda-date';
+      heading.textContent = formatDayLabel(key);
+      if (key === Store.todayKey()) heading.classList.add('is-today');
+      group.appendChild(heading);
+
+      var list = document.createElement('ul');
+      list.className = 'event-list';
+      byDate[key].events.forEach(function (item) {
+        var row = document.createElement('li');
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'event-item';
+        button.dataset.id = item.id;
+        button.dataset.date = item.date;
+        if (item.color) button.dataset.color = item.color;
+
+        var time = document.createElement('span');
+        time.className = 'event-time';
+        time.textContent = formatTime(item.time);
+        var body = document.createElement('span');
+        body.className = 'event-body';
+        var title = document.createElement('span');
+        title.className = 'event-title';
+        title.textContent = item.title;
+        body.appendChild(title);
+        button.appendChild(time);
+        button.appendChild(body);
+        row.appendChild(button);
+        list.appendChild(row);
+      });
+      group.appendChild(list);
+
+      if (byDate[key].tasks.length) {
+        var tasks = document.createElement('ul');
+        tasks.className = 'task-list';
+        TasksView.fillList(tasks, byDate[key].tasks, '', { hideDueFor: key });
+        TasksView.wireList(tasks);
+        group.appendChild(tasks);
+      }
+
+      els.agendaBody.appendChild(group);
+    });
   }
 
   function render() {
+    if (mode === 'agenda') {
+      renderAgenda();
+      return;
+    }
     renderGrid();
     renderDayPanel();
   }
 
+  function setMode(next) {
+    mode = next === 'agenda' ? 'agenda' : 'month';
+    els.agenda.hidden = mode !== 'agenda';
+    els.monthLayout.hidden = mode === 'agenda';
+    Array.prototype.forEach.call(els.modes.querySelectorAll('[data-mode]'), function (chip) {
+      chip.classList.toggle('is-on', chip.dataset.mode === mode);
+    });
+    render();
+  }
+
   /* --------------------------------------------------------- event modal -- */
+
+  function renderSwatches(selected) {
+    els.colors.innerHTML = '';
+    [''].concat(Store.colors()).forEach(function (name) {
+      var swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'swatch' + (name === selected ? ' is-on' : '');
+      swatch.dataset.color = name;
+      swatch.setAttribute('role', 'radio');
+      swatch.setAttribute('aria-checked', name === selected ? 'true' : 'false');
+      swatch.setAttribute('aria-label', name || 'Default');
+      els.colors.appendChild(swatch);
+    });
+  }
+
+  function chosenColor() {
+    var on = els.colors.querySelector('.swatch.is-on');
+    return on ? on.dataset.color : '';
+  }
 
   function showScope(show) {
     els.scope.hidden = !show;
@@ -248,6 +361,7 @@ window.CalendarView = (function () {
     els.eventDetails.value = editingMaster ? (editingMaster.details || '') : '';
     els.repeat.value = editingMaster ? (editingMaster.repeat || '') : '';
     els.until.value = editingMaster ? (editingMaster.repeatUntil || '') : '';
+    renderSwatches(editingMaster ? (editingMaster.color || '') : '');
     els.eventDelete.hidden = !editingMaster;
     els.eventError.hidden = true;
 
@@ -293,6 +407,7 @@ window.CalendarView = (function () {
       date: date,
       time: els.eventTime.value || '',
       details: els.eventDetails.value.trim(),
+      color: chosenColor(),
       repeat: els.repeat.value,
       repeatUntil: els.repeat.value ? els.until.value : '',
       // A new rule makes the old list of skipped days meaningless.
@@ -342,7 +457,12 @@ window.CalendarView = (function () {
       eventError: document.getElementById('event-error'),
       repeat: document.getElementById('event-repeat'),
       until: document.getElementById('event-until'),
-      scope: document.getElementById('event-scope')
+      scope: document.getElementById('event-scope'),
+      colors: document.getElementById('event-colors'),
+      agenda: document.getElementById('agenda'),
+      agendaBody: document.getElementById('agenda-body'),
+      monthLayout: document.getElementById('month-layout'),
+      modes: document.querySelector('#view-calendar .task-filters')
     };
 
     selectedDate = Store.todayKey();
@@ -389,6 +509,25 @@ window.CalendarView = (function () {
     });
 
     els.repeat.addEventListener('change', syncUntilField);
+
+    els.colors.addEventListener('click', function (clickEvent) {
+      var swatch = clickEvent.target.closest('.swatch');
+      if (swatch) renderSwatches(swatch.dataset.color);
+    });
+
+    els.modes.addEventListener('click', function (clickEvent) {
+      var chip = clickEvent.target.closest('[data-mode]');
+      if (chip) setMode(chip.dataset.mode);
+    });
+
+    document.getElementById('agenda-add').addEventListener('click', function () {
+      openModal(null, Store.todayKey());
+    });
+
+    els.agendaBody.addEventListener('click', function (clickEvent) {
+      var item = clickEvent.target.closest('.event-item');
+      if (item) openModal(item.dataset.id, item.dataset.date, item.dataset.date);
+    });
 
     // Switching between "this day" and "the series" changes which date the
     // form is really editing.

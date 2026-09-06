@@ -126,7 +126,20 @@
 
   <!-- ------------------------------- Calendar ------------------------------- -->
   <section id="view-calendar" class="view" aria-label="Calendar" hidden>
-    <div class="calendar-layout">
+    <div class="task-filters" role="group" aria-label="Calendar layout">
+      <button class="chip is-on" type="button" data-mode="month">Month</button>
+      <button class="chip" type="button" data-mode="agenda">Agenda</button>
+    </div>
+
+    <div id="agenda" class="card today-card" hidden>
+      <div class="card-head">
+        <h2>Next three weeks</h2>
+        <button id="agenda-add" class="button small" type="button">Add event</button>
+      </div>
+      <div id="agenda-body"></div>
+    </div>
+
+    <div class="calendar-layout" id="month-layout">
       <div class="card calendar-card">
         <div class="month-bar">
           <button id="prev-month" class="icon-button small" type="button" aria-label="Previous month">
@@ -267,6 +280,11 @@
         <textarea id="event-details" name="details" rows="3" maxlength="2000" placeholder="Address, agenda, who's coming…"></textarea>
       </label>
 
+      <div class="field">
+        <span>Colour</span>
+        <div id="event-colors" class="swatches" role="radiogroup" aria-label="Event colour"></div>
+      </div>
+
       <fieldset id="event-scope" class="scope" hidden>
         <legend>This event repeats. Apply changes to</legend>
         <label><input type="radio" name="scope" value="occurrence" checked> Only this day</label>
@@ -303,6 +321,16 @@
         <button class="chip" type="button" data-due="7">Next week</button>
         <button class="chip" type="button" data-due="">No date</button>
       </div>
+      <label class="field" id="task-repeat-field">
+        <span>Repeats <em>needs a due date</em></span>
+        <select id="task-repeat" name="repeat">
+          <option value="">Does not repeat</option>
+          <option value="daily">Every day</option>
+          <option value="weekly">Every week</option>
+          <option value="monthly">Every month</option>
+          <option value="yearly">Every year</option>
+        </select>
+      </label>
       <label class="field">
         <span>Notes <em>optional</em></span>
         <textarea id="task-details" name="details" rows="3" maxlength="2000"></textarea>
@@ -325,6 +353,9 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
     </button>
     <span id="note-status" class="note-status" aria-live="polite"></span>
+    <button id="note-check" class="icon-button" type="button" aria-label="Turn this line into a checklist item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 2.5 2.5L11 5M4 17l2.5 2.5L11 15M14 8h6M14 18h6"/></svg>
+    </button>
     <button id="note-pin" class="icon-button" type="button" aria-pressed="false" aria-label="Pin note">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 3v2H6v-2l4-3-1-6Z"/><path d="M12 14v7"/></svg>
     </button>

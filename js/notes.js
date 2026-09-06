@@ -92,8 +92,16 @@ window.NotesView = (function () {
       var text = document.createElement('p');
       text.textContent = preview(note);
 
+      var progress = Store.checklistProgress(note.body);
+
       var footer = document.createElement('span');
       footer.className = 'note-foot';
+      if (progress) {
+        var done = document.createElement('span');
+        done.className = 'tag check-count' + (progress.done === progress.total ? ' is-complete' : '');
+        done.textContent = progress.done + '/' + progress.total + ' done';
+        footer.appendChild(done);
+      }
       if (note.tags.length) {
         var tags = document.createElement('span');
         tags.className = 'note-tags-row';
@@ -209,6 +217,7 @@ window.NotesView = (function () {
       body: document.getElementById('note-body'),
       tags: document.getElementById('note-tags'),
       pin: document.getElementById('note-pin'),
+      check: document.getElementById('note-check'),
       status: document.getElementById('note-status')
     };
 
@@ -237,6 +246,26 @@ window.NotesView = (function () {
     els.body.addEventListener('input', scheduleSave);
     els.tags.addEventListener('input', scheduleSave);
     els.tags.addEventListener('blur', flush);
+
+    // Checklists are plain "- [ ]" lines, so this just rewrites the line the
+    // cursor is on and puts the cursor back where it was.
+    els.check.addEventListener('click', function () {
+      var body = els.body;
+      var value = body.value;
+      var caret = body.selectionStart;
+      var lineStart = value.lastIndexOf('\n', caret - 1) + 1;
+      var lineEnd = value.indexOf('\n', caret);
+      if (lineEnd === -1) lineEnd = value.length;
+
+      var line = value.slice(lineStart, lineEnd);
+      var replaced = Store.cycleChecklistLine(line);
+      body.value = value.slice(0, lineStart) + replaced + value.slice(lineEnd);
+
+      var shift = replaced.length - line.length;
+      body.selectionStart = body.selectionEnd = Math.max(lineStart, caret + shift);
+      body.focus();
+      scheduleSave();
+    });
 
     els.pin.addEventListener('click', function () {
       if (!currentId) return;
