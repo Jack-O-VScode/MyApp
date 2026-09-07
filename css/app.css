@@ -866,6 +866,91 @@ main {
 .field select:disabled { opacity: .55; cursor: not-allowed; }
 .check-count.is-complete { background: var(--brand-soft); color: var(--brand); }
 
+/* ------------------------------------------------------------- timezones -- */
+#view-clocks > .search { margin-bottom: 10px; }
+
+.zone-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 0 2px;
+}
+.zone-here { font-weight: 650; font-size: .95rem; }
+.zone-count { color: var(--text-soft); font-size: .82rem; white-space: nowrap; }
+
+.zone-group { margin-bottom: 18px; }
+.zone-group:last-child { margin-bottom: 0; }
+.zone-heading {
+  margin: 0 0 8px;
+  color: var(--text-soft);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.zone-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.zone-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+.zone-row.is-pinned { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); }
+
+.zone-star {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-faint, var(--text-soft));
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.zone-star:hover { background: var(--surface-2); color: var(--brand); }
+.zone-star.is-on { color: var(--accent); }
+
+.zone-body { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.zone-city {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.zone-area {
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: .8rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.zone-right { flex: none; display: grid; justify-items: end; gap: 1px; }
+.zone-time {
+  font-size: 1.05rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.zone-meta { font-size: .76rem; font-weight: 600; color: var(--text-soft); }
+.zone-meta.is-ahead { color: var(--brand); }
+.zone-meta.is-behind { color: var(--accent); }
+.zone-meta.is-same { color: var(--text-soft); }
+
+@media (max-width: 400px) {
+  .zone-row { padding: 8px 10px; gap: 8px; }
+  .zone-star { width: 30px; height: 30px; }
+  .zone-area { font-size: .75rem; }
+}
+
 /* ------------------------------------------------------------- reminders -- */
 .toggle-row {
   display: flex;

@@ -43,6 +43,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v3M17 2v3M3.5 9h17M4 5.5h16a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z"/></svg>
       <span>Calendar</span>
     </button>
+    <button class="menu-item" role="menuitem" data-view="clocks">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+      <span>Timezones</span>
+    </button>
     <button class="menu-item" role="menuitem" data-view="tasks">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 2.5 2.5L11 5M4 17l2.5 2.5L11 15M14 8h6M14 18h6"/></svg>
       <span>Tasks</span>
@@ -171,6 +175,22 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- ------------------------------- Timezones ------------------------------ -->
+  <section id="view-clocks" class="view" aria-label="Timezones" hidden>
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      <input id="zone-search" type="search" placeholder="Search a city, country or state"
+             autocomplete="off" aria-label="Search cities">
+    </label>
+
+    <div class="zone-bar">
+      <span id="zone-here" class="zone-here"></span>
+      <span id="zone-count" class="zone-count"></span>
+    </div>
+
+    <div id="zone-list"></div>
   </section>
 
   <!-- --------------------------------- Tasks -------------------------------- -->
@@ -637,10 +657,12 @@ create index if not exists reminders_pending
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="js/store.js"></script>
+<script src="js/zones.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/today.js"></script>
+<script src="js/clocks.js"></script>
 <script src="js/transfers.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/reminders.js"></script>

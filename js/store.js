@@ -620,18 +620,29 @@ window.Store = (function () {
     remindersOn: false,
     digestTime: '08:00',    // when the daily "what's due" summary fires
     digestOn: true,
-    defaultRemind: -1       // pre-selected reminder for a new event
+    defaultRemind: -1,      // pre-selected reminder for a new event
+    pinnedCities: []        // cities kept at the top of the timezone list
   };
 
   function getSettings() {
     var stored = state.settings || {};
-    return Object.assign({}, DEFAULT_SETTINGS, stored.values || {});
+    var values = Object.assign({}, DEFAULT_SETTINGS, stored.values || {});
+    // Hand back a copy of the array, so a caller cannot quietly rewrite the
+    // default for everything that reads it afterwards.
+    values.pinnedCities = (values.pinnedCities || []).slice();
+    return values;
   }
 
   function saveSettings(patch) {
     var current = getSettings();
     var next = Object.assign({}, current, patch || {});
-    var changed = Object.keys(next).some(function (key) { return next[key] !== current[key]; });
+    // Arrays never compare equal by reference, so compare by value.
+    var changed = Object.keys(next).some(function (key) {
+      var a = next[key];
+      var b = current[key];
+      if (a && typeof a === 'object') return JSON.stringify(a) !== JSON.stringify(b);
+      return a !== b;
+    });
     if (!changed) return next;
 
     state.settings = {

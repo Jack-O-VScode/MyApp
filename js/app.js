@@ -6,6 +6,7 @@
   var VIEWS = {
     today: { title: 'Today', action: '' },
     calendar: { title: 'Calendar', action: 'Today' },
+    clocks: { title: 'Timezones', action: '' },
     tasks: { title: 'Tasks', action: 'New task' },
     notes: { title: 'Notes', action: 'New note' },
     transfer: { title: 'Transfer', action: '' }
@@ -42,6 +43,7 @@
   var RENDER = {
     today: function () { TodayView.render(); },
     calendar: function () { CalendarView.render(); },
+    clocks: function () { ClocksView.render(); },
     tasks: function () { TasksView.render(); },
     notes: function () { NotesView.render(); },
     transfer: function () { TransfersView.render(); }
@@ -516,6 +518,7 @@
     CalendarView.init();
     NotesView.init();
     TodayView.init();
+    ClocksView.init();
     TransfersView.init();
     setupSync();
     setupReminders();
