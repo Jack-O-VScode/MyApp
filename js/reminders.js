@@ -199,6 +199,13 @@ window.Reminders = (function () {
     return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   }
 
+  // Shipped in js/config.js so no one has to paste it; a value saved in
+  // settings still wins, for anyone pointing the app at their own project.
+  function vapidKey() {
+    var stored = Store.getSettings().vapidPublicKey;
+    return stored || (window.APP_CONFIG || {}).vapidPublicKey || '';
+  }
+
   function permission() {
     return supported() ? Notification.permission : 'unsupported';
   }
@@ -210,7 +217,8 @@ window.Reminders = (function () {
       return Promise.reject(new Error('This browser cannot receive push notifications.'));
     }
     var settings = Store.getSettings();
-    if (!settings.vapidPublicKey) {
+    var publicKey = vapidKey();
+    if (!publicKey) {
       return Promise.reject(new Error('Add your project’s public reminder key first.'));
     }
     if (!Sync.getStatus().signedIn) {
@@ -229,7 +237,7 @@ window.Reminders = (function () {
         if (existing) return existing;
         return registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(settings.vapidPublicKey)
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
       });
     }).then(function (subscription) {
@@ -334,6 +342,7 @@ window.Reminders = (function () {
     init: init,
     supported: supported,
     permission: permission,
+    vapidKey: vapidKey,
     enable: enable,
     disable: disable,
     sendTest: sendTest,

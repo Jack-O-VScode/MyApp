@@ -423,7 +423,7 @@
         a small scheduled function in your own Supabase project — see the setup guide for the
         one-time deployment.</p>
       <label class="field">
-        <span>Public reminder key <em>from your project</em></span>
+        <span>Public reminder key <em>only for a different project</em></span>
         <input id="reminders-key" type="text" placeholder="B…" autocomplete="off"
                autocapitalize="none" spellcheck="false">
       </label>
@@ -585,6 +585,7 @@ create index if not exists reminders_pending
           what keeps your rows readable only by your own account.</p>
       </details>
       <div class="modal-actions">
+        <button id="sync-use-builtin" class="button" type="button" hidden>Use the built-in project</button>
         <span class="spacer"></span>
         <button class="button" type="button" data-sync-close>Close</button>
         <button id="sync-save" class="button primary" type="button">Save</button>
@@ -601,9 +602,10 @@ create index if not exists reminders_pending
         <span>Password</span>
         <input id="sync-password" type="password" autocomplete="current-password">
       </label>
-      <p class="help-note">Use the same email and password on every device. If Supabase
-        emails you a confirmation link when you create the account, click it and then
-        sign in.</p>
+      <p class="help-note">Use the same email and password on every device. On a new
+        device that is all there is to it — the project is already built into the app.
+        If Supabase emails you a confirmation link when you create the account, click it
+        and then sign in.</p>
       <div class="modal-actions">
         <button id="sync-change-server" class="button" type="button">Change project</button>
         <span class="spacer"></span>
@@ -656,6 +658,7 @@ create index if not exists reminders_pending
 <input id="import-file" type="file" accept="application/json,.json" hidden>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="js/config.js"></script>
 <script src="js/store.js"></script>
 <script src="js/zones.js"></script>
 <script src="js/calendar.js"></script>

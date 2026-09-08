@@ -45,6 +45,12 @@ window.Sync = (function () {
     } catch (err) {
       console.warn('Could not read sync settings:', err);
     }
+    // js/config.js supplies the project this copy of the app belongs to, so a
+    // new device only ever has to sign in. Anything stored locally wins, which
+    // is what "Change project" writes.
+    var built = window.APP_CONFIG || {};
+    if (!config.url) config.url = (built.supabaseUrl || '').replace(/\/+$/, '');
+    if (!config.anonKey) config.anonKey = built.supabaseAnonKey || '';
   }
 
   function saveConfig() {
@@ -352,12 +358,25 @@ window.Sync = (function () {
     setStatus(isSignedIn() ? 'ok' : 'off', '');
   }
 
+  // Detach from whatever project this device is on, so a different one can be
+  // entered by hand. The built-in values are not restored here: coming back to
+  // them is what "Use the built-in project" does.
   function forget() {
     signOut();
     config.url = '';
     config.anonKey = '';
     saveConfig();
     setStatus('off', '');
+  }
+
+  function hasBuiltIn() {
+    var built = window.APP_CONFIG || {};
+    return !!(built.supabaseUrl && built.supabaseAnonKey);
+  }
+
+  function useBuiltIn() {
+    var built = window.APP_CONFIG || {};
+    configure(built.supabaseUrl || '', built.supabaseAnonKey || '');
   }
 
   function init() {
@@ -410,6 +429,8 @@ window.Sync = (function () {
     authorized: authorized,
     getConfig: function () { return { url: config.url, anonKey: config.anonKey }; },
     configure: configure,
+    hasBuiltIn: hasBuiltIn,
+    useBuiltIn: useBuiltIn,
     signIn: signIn,
     signUp: signUp,
     signOut: signOut,

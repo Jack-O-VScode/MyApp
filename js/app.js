@@ -139,10 +139,15 @@
   /* ----------------------------------------------------------------- sync -- */
 
   var syncEls = {};
+  var showProjectFields = false;
 
   function syncStateText(info) {
-    if (!info.configured) return 'Not set up yet — add your project below to sync with another device.';
-    if (!info.signedIn) return 'Project saved. Sign in to start syncing.';
+    if (!info.configured) return 'Add a project below to sync with your other devices.';
+    if (!info.signedIn) {
+      return Sync.hasBuiltIn() && !showProjectFields
+        ? 'Sign in with the same email you use on your other devices.'
+        : 'Project saved. Sign in to start syncing.';
+    }
     switch (info.state) {
       case 'syncing': return 'Syncing…';
       case 'offline': return 'Offline — changes will go up when the connection returns.';
@@ -181,11 +186,14 @@
     syncEls.state.textContent = syncStateText(info);
     syncEls.state.dataset.state = info.state;
 
-    // Only one of the three steps is ever on screen.
-    syncEls.stepServer.hidden = info.configured;
-    syncEls.stepAccount.hidden = !info.configured || info.signedIn;
-    syncEls.stepConnected.hidden = !info.signedIn;
+    // Only one of the three steps is ever on screen. With a project built in,
+    // the first step is skipped entirely unless it is asked for.
+    var needsProject = !info.configured || showProjectFields;
+    syncEls.stepServer.hidden = !needsProject;
+    syncEls.stepAccount.hidden = needsProject || info.signedIn;
+    syncEls.stepConnected.hidden = needsProject || !info.signedIn;
     syncEls.email.textContent = info.email || '';
+    syncEls.revert.hidden = !Sync.hasBuiltIn();
   }
 
   function syncError(message) {
@@ -232,6 +240,7 @@
   }
 
   function openSync() {
+    showProjectFields = false;
     var stored = Sync.getConfig();
     syncEls.url.value = stored.url;
     syncEls.key.value = stored.anonKey;
@@ -252,6 +261,7 @@
       url: document.getElementById('sync-url'),
       key: document.getElementById('sync-key'),
       emailInput: document.getElementById('sync-email-input'),
+      revert: document.getElementById('sync-use-builtin'),
       password: document.getElementById('sync-password'),
       email: document.getElementById('sync-email')
     };
@@ -263,6 +273,7 @@
       if (!key) return syncError('Paste the anon public key too.');
       syncError('');
       Sync.configure(url, key);
+      showProjectFields = false;
       renderSync();
       syncEls.emailInput.focus();
     });
@@ -290,6 +301,16 @@
     document.getElementById('sync-change-server').addEventListener('click', function () {
       Sync.forget();
       openSync();
+      showProjectFields = true;
+      renderSync();
+    });
+
+    syncEls.revert.addEventListener('click', function () {
+      Sync.useBuiltIn();
+      showProjectFields = false;
+      syncError('');
+      renderSync();
+      syncEls.emailInput.focus();
     });
     document.getElementById('sync-now').addEventListener('click', function () {
       Sync.syncNow().then(renderSync);
@@ -321,7 +342,7 @@
     var settings = Store.getSettings();
     if (!Reminders.supported()) return 'This browser cannot show notifications.';
     if (!Sync.getStatus().signedIn) return 'Turn on sync first — reminders use the same project.';
-    if (!settings.vapidPublicKey) return 'Paste your project’s public reminder key below.';
+    if (!Reminders.vapidKey()) return 'Paste your project’s public reminder key below.';
     if (Reminders.permission() === 'denied') {
       return 'Notifications are blocked for this site. Allow them in your browser settings.';
     }
@@ -341,6 +362,8 @@
     remEls.digestOn.checked = !!settings.digestOn;
     remEls.defaultRemind.value = String(settings.defaultRemind);
     remEls.key.value = settings.vapidPublicKey || '';
+    // The key ships with the app, so the field is only for a different project.
+    remEls.setup.hidden = !!(window.APP_CONFIG || {}).vapidPublicKey && !settings.vapidPublicKey;
     remEls.enable.hidden = on;
     remEls.disable.hidden = !on;
     remEls.test.hidden = !on;
@@ -364,6 +387,7 @@
       state: document.getElementById('reminders-state'),
       error: document.getElementById('reminders-error'),
       key: document.getElementById('reminders-key'),
+      setup: document.getElementById('reminders-setup'),
       digestTime: document.getElementById('reminders-digest-time'),
       digestOn: document.getElementById('reminders-digest-on'),
       defaultRemind: document.getElementById('reminders-default'),
