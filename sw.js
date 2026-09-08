@@ -1,6 +1,6 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v8';
+var CACHE = 'calendar-notes-v9';
 
 var SHELL = [
   './',
@@ -115,17 +115,22 @@ self.addEventListener('push', function (event) {
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var target = (event.notification.data && event.notification.data.url) || './';
+  var raw = (event.notification.data && event.notification.data.url) || './';
+  // Resolve against the registration scope, not self.location: inside a worker
+  // the latter is sw.js itself, so '#tasks' would open the worker's source.
+  var target = new URL(raw, self.registration.scope).href;
 
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     .then(function (windows) {
       for (var i = 0; i < windows.length; i++) {
-        if ('focus' in windows[i]) {
-          if ('navigate' in windows[i] && target.indexOf('#') === 0) {
-            windows[i].navigate(new URL(target, self.location.href).href).catch(function () {});
-          }
-          return windows[i].focus();
+        var client = windows[i];
+        if (client.url.indexOf(self.registration.scope) !== 0) continue;
+        if ('navigate' in client && client.url !== target) {
+          return client.navigate(target).then(function (moved) {
+            return (moved || client).focus();
+          }).catch(function () { return client.focus(); });
         }
+        if ('focus' in client) return client.focus();
       }
       if (self.clients.openWindow) return self.clients.openWindow(target);
       return null;
