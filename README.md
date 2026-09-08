@@ -235,12 +235,22 @@ The same SQL is inside the app, with a **Copy** button:
 
 > The anon key is designed to be public. The row-level security policies from
 > step 2 are what keep your rows readable only by your own account.
+>
+> It ships in `js/config.js` so no device has to be told it. Once your own
+> devices are enrolled, turn off **Allow new users to sign up** under
+> *Authentication → Sign In / Providers* in Supabase: after that the published
+> key is of no use to anyone else, since it can neither read data nor create an
+> account.
 
 ### Step 4 — Connect your first device
 
+The project this copy of the app belongs to lives in `js/config.js`, so there is
+nothing to paste on any device — only an account to sign in with. (Use **Change
+project** in the Sync panel, or blank those values out, to point a copy
+somewhere else.)
+
 1. Open the app and choose **Sync** from the ☰ menu.
-2. Paste the **Project URL** and the **anon public** key, then **Save**.
-3. Enter an email and a password (at least 6 characters) and click
+2. Enter an email and a password (at least 6 characters) and click
    **Create account**.
 4. New projects have *Confirm email* switched on, so Supabase emails you a link.
    Click it, come back, and press **Sign in**.
@@ -250,8 +260,9 @@ The same SQL is inside the app, with a **Copy** button:
 
 ### Step 5 — Connect every other device
 
-On each of your other devices — second PC, iPhone, iPad — do exactly the same
-except **Sign in** instead of Create account, with the same email and password.
+On each of your other devices — second PC, iPhone, iPad — open the app, go to
+**Sync**, and press **Sign in** with the same email and password. That is the
+whole setup for a new device.
 Each one pulls the full history within a second or two.
 
 Use the **same URL** for the app on every device (your GitHub Pages address), and
@@ -383,8 +394,8 @@ if you prefer clicking to SQL.
 
 ### 6. Turn them on, per device
 
-Menu → **Reminders**, paste the **public** key, then **Turn on here**. Each
-device needs its own permission — a phone and a PC do not share one. On iPhone
+Menu → **Reminders** → **Turn on here**. The public key ships in `js/config.js`,
+so there is nothing to paste. Each device needs its own permission — a phone and a PC do not share one. On iPhone
 and iPad the app must be on the Home Screen first; Safari does not allow push to
 a page in a tab.
 
@@ -444,11 +455,14 @@ Consequences worth knowing:
 ```
 index.html              markup for all five views, the menu and the dialogs
 css/app.css             all styling, including the light/dark palette
+js/config.js            which project this copy connects to, and the push key
 js/store.js             data layer: events, tasks, notes, recurrence, search
 js/calendar.js          month grid, day panel, event editor
 js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
 js/today.js             the Today screen and cross-app search
+js/zones.js             the city list behind the Timezones screen
+js/clocks.js            the Timezones screen: search, pinning, live clocks
 js/transfers.js         device-to-device file transfer via Supabase Storage
 js/reminders.js         works out when reminders fire and keeps the table current
 supabase/functions/     the scheduled sender that turns those rows into pushes
