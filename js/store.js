@@ -623,6 +623,8 @@ window.Store = (function () {
     defaultRemind: -1,      // pre-selected reminder for a new event
     pinnedCities: [],       // cities kept at the top of the timezone list
     themeBg: '',            // App settings: page colour, '' follows the system
+    themeBg2: '',           // App settings: the bottom of a gradient page
+    themeBgMode: 'solid',   // App settings: solid | gradient
     themeBar: '',           // App settings: appbar and menu colour
     themeAccent: '',        // App settings: buttons and highlights
     textSize: 'normal',     // App settings: small | normal | large

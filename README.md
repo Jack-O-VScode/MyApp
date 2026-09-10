@@ -49,13 +49,17 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   sent, collected or not, and **Remove** clears one sooner.
 
 **App settings**
-- **App theme colour** — three colour wheels: the background (the page behind
+- **App theme colour** — colour wheels for the background (the page behind
   everything), the bar (the strip at the top and the menu that drops out of it)
   and the accent (buttons, today's date, the day you have picked, the chips).
+  The background can be **Solid** — one colour — or a **Gradient** between two,
+  running top to bottom.
   Everything else — text, muted text, borders, and what is written on a coloured
   button — is worked out from those, by contrast rather than by taste, so no
-  combination can leave you with writing you cannot read. Seven presets are
-  offered as starting points, and **Reset** hands the app back to your device's
+  combination can leave you with writing you cannot read. A gradient has one
+  text colour over two ends, so ends far apart are pulled towards each other
+  until both work; ends that already do are left alone. Nine presets are offered
+  as starting points, and **Reset** hands the app back to your device's
   light/dark setting.
 - **Text size** — Small, Normal or Large, scaling the whole app.
 - **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,

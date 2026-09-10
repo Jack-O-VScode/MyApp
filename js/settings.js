@@ -21,6 +21,11 @@ window.SettingsView = (function () {
     { id: '24', label: '24-hour' }
   ];
 
+  var BG_MODES = [
+    { id: 'solid', label: 'Solid' },
+    { id: 'gradient', label: 'Gradient' }
+  ];
+
   // What the screen should be showing. While a write is still queued that is
   // the value in hand, not the one in storage — reading storage mid-drag would
   // snap the wheel back to where it started.
@@ -49,10 +54,12 @@ window.SettingsView = (function () {
     Store.saveSettings(merged);
   }
 
-  // The shape js/theme.js wants, from the shape the store keeps.
+  // The shape js/theme.js wants, from the shape the store keeps. The second
+  // colour is remembered while Solid is selected, and simply not passed on.
   function appearance(values) {
     return {
       bg: values.themeBg,
+      bg2: values.themeBgMode === 'gradient' ? values.themeBg2 : '',
       bar: values.themeBar,
       accent: values.themeAccent,
       textSize: values.textSize
@@ -65,8 +72,12 @@ window.SettingsView = (function () {
   // using anyway when nothing has been chosen.
   function shown(values) {
     var fallback = Theme.fallback();
+    var bg = Theme.normalise(values.themeBg) || fallback.bg;
     return {
-      bg: Theme.normalise(values.themeBg) || fallback.bg,
+      bg: bg,
+      // An unset second colour starts from the first, so opening the gradient
+      // begins somewhere sensible rather than at black.
+      bg2: Theme.normalise(values.themeBg2) || bg,
       bar: Theme.normalise(values.themeBar) || fallback.bar,
       accent: Theme.normalise(values.themeAccent) || fallback.accent
     };
@@ -76,11 +87,17 @@ window.SettingsView = (function () {
     var values = settings();
     var visible = shown(values);
 
-    [['bg', els.bg, els.bgValue], ['bar', els.bar, els.barValue],
+    [['bg', els.bg, els.bgValue], ['bg2', els.bg2, els.bg2Value],
+     ['bar', els.bar, els.barValue],
      ['accent', els.accent, els.accentValue]].forEach(function (row) {
       row[1].value = visible[row[0]];
       row[2].textContent = visible[row[0]].toUpperCase();
     });
+
+    var gradient = values.themeBgMode === 'gradient';
+    markSegmented(els.bgMode, 'mode', gradient ? 'gradient' : 'solid');
+    els.bg2Field.hidden = !gradient;
+    els.bgLabel.textContent = gradient ? 'Top' : 'Colour';
 
     var custom = !!(Theme.normalise(values.themeBg) ||
                     Theme.normalise(values.themeBar) ||
@@ -89,12 +106,14 @@ window.SettingsView = (function () {
     els.followNote.hidden = custom;
 
     Array.prototype.forEach.call(els.presets.children, function (button) {
+      var presetBg2 = button.dataset.bg2;
       var on = button.dataset.bg === (Theme.normalise(values.themeBg) || '') &&
-               button.dataset.bar === (Theme.normalise(values.themeBar) || '');
+               button.dataset.bar === (Theme.normalise(values.themeBar) || '') &&
+               presetBg2 === (gradient ? Theme.normalise(values.themeBg2) || '' : '');
       button.classList.toggle('is-on', on);
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
       // The System swatch shows whatever the device is giving us right now.
-      button.style.setProperty('--dot-bg', button.dataset.bg || visible.bg);
+      button.style.setProperty('--dot-bg', button.dataset.bg2 || button.dataset.bg || visible.bg);
       button.style.setProperty('--dot-bar', button.dataset.bar || visible.bar);
     });
   }
@@ -106,6 +125,8 @@ window.SettingsView = (function () {
     var merged = Object.assign({}, settings(), patch);
     var write = {
       themeBg: Theme.normalise(merged.themeBg),
+      themeBg2: Theme.normalise(merged.themeBg2),
+      themeBgMode: merged.themeBgMode === 'gradient' ? 'gradient' : 'solid',
       themeBar: Theme.normalise(merged.themeBar),
       themeAccent: Theme.normalise(merged.themeAccent)
     };
@@ -124,6 +145,7 @@ window.SettingsView = (function () {
       button.type = 'button';
       button.className = 'preset';
       button.dataset.bg = preset.bg;
+      button.dataset.bg2 = preset.bg2 || '';
       button.dataset.bar = preset.bar;
       button.innerHTML = '<span class="preset-dot" aria-hidden="true"></span><span></span>';
       button.lastChild.textContent = preset.label;
@@ -162,9 +184,14 @@ window.SettingsView = (function () {
 
   function init() {
     els.bg = document.getElementById('theme-bg');
+    els.bg2 = document.getElementById('theme-bg2');
+    els.bg2Field = document.getElementById('theme-bg2-field');
+    els.bgLabel = document.getElementById('theme-bg-label');
+    els.bgMode = document.getElementById('bg-mode');
     els.bar = document.getElementById('theme-bar');
     els.accent = document.getElementById('theme-accent');
     els.bgValue = document.getElementById('theme-bg-value');
+    els.bg2Value = document.getElementById('theme-bg2-value');
     els.barValue = document.getElementById('theme-bar-value');
     els.accentValue = document.getElementById('theme-accent-value');
     els.reset = document.getElementById('theme-reset');
@@ -174,12 +201,16 @@ window.SettingsView = (function () {
     els.clock = document.getElementById('clock-format');
 
     buildPresets();
+    buildSegmented(els.bgMode, BG_MODES, 'mode');
     buildSegmented(els.textSize, Theme.TEXT_SIZES, 'size');
     buildSegmented(els.clock, CLOCKS, 'clock');
 
     ['input', 'change'].forEach(function (type) {
       els.bg.addEventListener(type, function () {
         setColours({ themeBg: this.value }, type === 'change');
+      });
+      els.bg2.addEventListener(type, function () {
+        setColours({ themeBg2: this.value }, type === 'change');
       });
       els.bar.addEventListener(type, function () {
         setColours({ themeBar: this.value }, type === 'change');
@@ -190,14 +221,34 @@ window.SettingsView = (function () {
     });
 
     els.reset.addEventListener('click', function () {
-      setColours({ themeBg: '', themeBar: '', themeAccent: '' }, true);
+      setColours({
+        themeBg: '', themeBg2: '', themeBgMode: 'solid',
+        themeBar: '', themeAccent: ''
+      }, true);
       App.toast('Back to the system colours.');
+    });
+
+    els.bgMode.addEventListener('click', function (clickEvent) {
+      var button = clickEvent.target.closest('button');
+      if (!button) return;
+      var patch = { themeBgMode: button.dataset.mode };
+      // Turning the gradient on with no second colour yet starts it from the
+      // one already showing, so the page does not jump.
+      if (button.dataset.mode === 'gradient' && !Theme.normalise(settings().themeBg2)) {
+        patch.themeBg2 = shown(settings()).bg2;
+      }
+      setColours(patch, true);
     });
 
     els.presets.addEventListener('click', function (clickEvent) {
       var button = clickEvent.target.closest('.preset');
       if (!button) return;
-      setColours({ themeBg: button.dataset.bg, themeBar: button.dataset.bar }, true);
+      setColours({
+        themeBg: button.dataset.bg,
+        themeBg2: button.dataset.bg2,
+        themeBgMode: button.dataset.bg2 ? 'gradient' : 'solid',
+        themeBar: button.dataset.bar
+      }, true);
     });
 
     els.textSize.addEventListener('click', function (clickEvent) {

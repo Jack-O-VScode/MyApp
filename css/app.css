@@ -71,6 +71,19 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* A gradient background, when one is chosen. Painted by a fixed layer rather
+   than by body itself so it is always exactly the viewport: no tiling on a long
+   page, no drift while scrolling, and none of the trouble iOS has with a fixed
+   background attachment. Left unset it paints nothing and body's own --bg
+   shows through. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--bg-image, none);
+}
+
 button, input, textarea { font: inherit; color: inherit; }
 
 svg {
@@ -1156,10 +1169,19 @@ main {
 
 .set-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding: 12px 0;
   border-top: 1px solid var(--line);
+}
+/* Sits under the row it belongs to, so the two ends of a gradient read as one
+   control rather than two settings. */
+.set-row-swatches {
+  justify-content: flex-end;
+  gap: 20px;
+  padding-top: 0;
+  border-top: 0;
 }
 .set-row:first-child { border-top: 0; }
 .set-row-text { flex: 1; min-width: 0; }
@@ -1193,6 +1215,11 @@ main {
 .swatch-input::-webkit-color-swatch-wrapper { padding: 3px; }
 .swatch-input::-webkit-color-swatch { border: 0; border-radius: 8px; }
 .swatch-input::-moz-color-swatch { border: 0; border-radius: 8px; }
+.swatch-label {
+  color: var(--text-soft);
+  font-size: .84rem;
+  font-weight: 600;
+}
 .swatch-value {
   min-width: 4.9em;
   color: var(--text-soft);

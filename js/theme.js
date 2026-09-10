@@ -24,7 +24,8 @@ window.Theme = (function () {
   ];
   var DEFAULT_TEXT_SIZE = 'normal';
 
-  // Starting points, not limits: both colours stay editable afterwards.
+  // Starting points, not limits: every colour stays editable afterwards. A
+  // preset carrying bg2 sets the page as a gradient.
   var PRESETS = [
     { id: 'system', label: 'System', bg: '', bar: '' },
     { id: 'ink', label: 'Ink', bg: '#12141f', bar: '#1c2338' },
@@ -32,7 +33,9 @@ window.Theme = (function () {
     { id: 'ocean', label: 'Ocean', bg: '#eef4fb', bar: '#1d4e79' },
     { id: 'forest', label: 'Forest', bg: '#f1f6f0', bar: '#244d33' },
     { id: 'plum', label: 'Plum', bg: '#f8f1f8', bar: '#4a2350' },
-    { id: 'slate', label: 'Slate', bg: '#eef1f6', bar: '#333f4f' }
+    { id: 'slate', label: 'Slate', bg: '#eef1f6', bar: '#333f4f' },
+    { id: 'dawn', label: 'Dawn', bg: '#fff4e8', bg2: '#f6e5f3', bar: '#8a4a6d' },
+    { id: 'dusk', label: 'Dusk', bg: '#141a2e', bg2: '#2a1b3a', bar: '#1d2440' }
   ];
 
   /* --------------------------------------------------------------- colour -- */
@@ -174,21 +177,32 @@ window.Theme = (function () {
   }
 
   // Background colour -> the page, the cards and everything written on them.
-  function pageTokens(chosen, accent) {
-    var pole = poleFor(chosen);
+  // `bottom` is set when the page is a gradient, in which case one text colour
+  // has to work over both ends: the scheme is chosen from the midpoint and each
+  // end is then held to it separately. Ends far apart get pulled towards each
+  // other — a white-to-black page comes out white-to-grey — which keeps the
+  // gradient going the way it was asked for and keeps it readable.
+  function pageTokens(chosen, accent, bottom) {
+    var second = normalise(bottom);
+    var middle = second ? mix(chosen, second, 0.5) : chosen;
+    var pole = poleFor(middle);
     var dark = pole === WHITE;
 
     // Cards carry most of the reading, so they are held to AAA. That is also
     // what lifts a mid-tone choice into a usable range.
     var surface = deepen(
-      dark ? mix(chosen, WHITE, 0.07) : mix(chosen, WHITE, 0.72), pole, 8.5);
-    var text = readable(surface, mix(pole, chosen, 0.1), 7.5);
+      dark ? mix(middle, WHITE, 0.07) : mix(middle, WHITE, 0.72), pole, 8.5);
+    var text = readable(surface, mix(pole, middle, 0.1), 7.5);
     var bg = deepen(chosen, text, 4.6);
+    var bg2 = second ? deepen(second, text, 4.6) : '';
     var filled = fill(surface, wantedAccent(accent, dark));
     var brand = filled.colour;
 
     return {
       '--bg': bg,
+      '--bg-image': bg2
+        ? 'linear-gradient(180deg, ' + bg + ' 0%, ' + bg2 + ' 100%)'
+        : '',
       '--surface': surface,
       '--surface-2': dark ? mix(surface, WHITE, 0.06) : mix(surface, BLACK, 0.05),
       '--text': text,
@@ -244,7 +258,7 @@ window.Theme = (function () {
 
   /* ---------------------------------------------------------------- apply -- */
 
-  var current = { bg: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE };
+  var current = { bg: '', bg2: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE };
 
   function write(root, tokens, keys) {
     keys.forEach(function (key) {
@@ -281,6 +295,8 @@ window.Theme = (function () {
     var wanted = values || {};
     var root = document.documentElement;
     current.bg = normalise(wanted.bg);
+    // A second colour only means anything alongside a first one.
+    current.bg2 = current.bg ? normalise(wanted.bg2) : '';
     current.bar = normalise(wanted.bar);
     current.accent = normalise(wanted.accent);
     var size = sizeFor(wanted.textSize);
@@ -288,7 +304,7 @@ window.Theme = (function () {
 
     // Nothing chosen: drop every override so the stylesheet's own light and
     // dark schemes take back over, live.
-    write(root, current.bg ? pageTokens(current.bg, current.accent) : null, PAGE_KEYS);
+    write(root, current.bg ? pageTokens(current.bg, current.accent, current.bg2) : null, PAGE_KEYS);
     write(root, current.bar ? barTokens(current.bar, current.accent) : null, BAR_KEYS);
 
     // An accent with no page colour still has to land somewhere.
@@ -328,6 +344,7 @@ window.Theme = (function () {
   var start = saved();
   apply({
     bg: start.themeBg,
+    bg2: start.themeBgMode === 'gradient' ? start.themeBg2 : '',
     bar: start.themeBar,
     accent: start.themeAccent,
     textSize: start.textSize
@@ -361,15 +378,15 @@ window.Theme = (function () {
         accent: normalise(style.getPropertyValue('--brand')) || '#4f6bf6'
       };
     },
-    tokens: function (bg, bar, accent) {
+    tokens: function (bg, bar, accent, bg2) {
       return {
-        page: normalise(bg) ? pageTokens(normalise(bg), accent) : null,
+        page: normalise(bg) ? pageTokens(normalise(bg), accent, bg2) : null,
         bar: normalise(bar) ? barTokens(normalise(bar), accent) : null
       };
     },
     current: function () {
       return {
-        bg: current.bg, bar: current.bar,
+        bg: current.bg, bg2: current.bg2, bar: current.bar,
         accent: current.accent, textSize: current.textSize
       };
     }

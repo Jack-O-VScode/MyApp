@@ -491,7 +491,10 @@
   function applyAppearance() {
     var wanted = Store.getSettings();
     var live = Theme.current();
+    var wantedBg2 = wanted.themeBgMode === 'gradient'
+      ? Theme.normalise(wanted.themeBg2) : '';
     if (Theme.normalise(wanted.themeBg) === live.bg &&
+        wantedBg2 === live.bg2 &&
         Theme.normalise(wanted.themeBar) === live.bar &&
         Theme.normalise(wanted.themeAccent) === live.accent &&
         (wanted.textSize || Theme.DEFAULT_TEXT_SIZE) === live.textSize) {
@@ -499,6 +502,7 @@
     }
     Theme.apply({
       bg: wanted.themeBg,
+      bg2: wantedBg2,
       bar: wanted.themeBar,
       accent: wanted.themeAccent,
       textSize: wanted.textSize
