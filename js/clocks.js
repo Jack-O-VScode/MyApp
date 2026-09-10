@@ -57,10 +57,7 @@ window.ClocksView = (function () {
   }
 
   function timeIn(zone, at) {
-    return formatterFor(zone, 'time', {
-      locale: undefined,
-      opts: { timeZone: zone, hour: 'numeric', minute: '2-digit' }
-    }).format(at);
+    return Fmt.clockIn(zone, at);
   }
 
   function dayIn(zone, at) {

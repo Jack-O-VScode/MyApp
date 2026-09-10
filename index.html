@@ -278,9 +278,10 @@
         <h2>App theme colour</h2>
         <button id="theme-reset" class="button small" type="button" hidden>Reset</button>
       </div>
-      <p class="set-note">Both colours travel with your account, so a change here
-        turns up on your other devices too. Text and borders are worked out from
-        what you pick, so nothing ends up unreadable.</p>
+      <p class="set-note">All three travel with your account, so a change here
+        turns up on your other devices too. Text, borders and whatever is written
+        on a coloured button are worked out from what you pick, so nothing ends
+        up unreadable.</p>
 
       <div class="set-row">
         <div class="set-row-text">
@@ -304,10 +305,43 @@
         </label>
       </div>
 
+      <div class="set-row">
+        <div class="set-row-text">
+          <strong>Accent colour</strong>
+          <span>Buttons, today&rsquo;s date, the day you have picked and the chips.</span>
+        </div>
+        <label class="swatch-field">
+          <input id="theme-accent" class="swatch-input" type="color" aria-label="Accent colour">
+          <span id="theme-accent-value" class="swatch-value"></span>
+        </label>
+      </div>
+
       <p id="theme-follow-note" class="help-note">Right now the app follows your
         device&rsquo;s light or dark setting. Pick a colour to take over from it.</p>
 
       <div id="theme-presets" class="preset-list" role="group" aria-label="Colour presets"></div>
+    </section>
+
+    <section class="card set-card">
+      <div class="card-head">
+        <h2>Text and times</h2>
+      </div>
+
+      <div class="set-row">
+        <div class="set-row-text">
+          <strong>Text size</strong>
+          <span>Scales the whole app, not just this screen.</span>
+        </div>
+        <div id="text-size" class="segmented" role="group" aria-label="Text size"></div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-row-text">
+          <strong>Clock</strong>
+          <span>Follow each device, or hold every one of them to the same format.</span>
+        </div>
+        <div id="clock-format" class="segmented" role="group" aria-label="Clock format"></div>
+      </div>
     </section>
   </section>
 </main>
@@ -707,6 +741,7 @@ create index if not exists reminders_pending
 
 <script src="js/config.js"></script>
 <script src="js/store.js"></script>
+<script src="js/format.js"></script>
 <script src="js/zones.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/tasks.js"></script>

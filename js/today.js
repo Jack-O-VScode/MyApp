@@ -7,10 +7,7 @@ window.TodayView = (function () {
   var query = '';
 
   function formatTime(time) {
-    if (!time) return 'All day';
-    var parts = time.split(':');
-    var date = new Date(2000, 0, 1, Number(parts[0]), Number(parts[1]));
-    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return Fmt.time(time);
   }
 
   /* ------------------------------------------------------------- sections -- */

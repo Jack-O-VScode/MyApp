@@ -49,13 +49,18 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   sent, collected or not, and **Remove** clears one sooner.
 
 **App settings**
-- **App theme colour** — two colour wheels: one for the background (the page
-  behind everything) and one for the bar (the strip at the top and the menu that
-  drops out of it). Text, borders and highlights are worked out from what you
-  pick, by contrast rather than by taste, so no pair of colours can leave you
-  with writing you cannot read.
-- **Reset** hands the app back to your device's light/dark setting.
-- Both colours ride along with sync, so the app looks the same on every device.
+- **App theme colour** — three colour wheels: the background (the page behind
+  everything), the bar (the strip at the top and the menu that drops out of it)
+  and the accent (buttons, today's date, the day you have picked, the chips).
+  Everything else — text, muted text, borders, and what is written on a coloured
+  button — is worked out from those, by contrast rather than by taste, so no
+  combination can leave you with writing you cannot read. Seven presets are
+  offered as starting points, and **Reset** hands the app back to your device's
+  light/dark setting.
+- **Text size** — Small, Normal or Large, scaling the whole app.
+- **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,
+  tasks, notes and the Timezones screen all read from the one setting.
+- All of it rides along with sync, so the app looks the same on every device.
 
 **Reminders** (optional, extra setup)
 - Per-event reminders, from "when it starts" to a day before.
@@ -469,6 +474,7 @@ js/config.js            which project this copy connects to, and the push key
 js/theme.js             derives the palette from the two chosen colours; runs
                         from <head> so a custom app never flashes the default
 js/store.js             data layer: events, tasks, notes, recurrence, search
+js/format.js            clock times, in whichever format App settings asks for
 js/calendar.js          month grid, day panel, event editor
 js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor

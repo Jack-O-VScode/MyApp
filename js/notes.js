@@ -15,7 +15,7 @@ window.NotesView = (function () {
     var now = new Date();
     var sameDay = date.toDateString() === now.toDateString();
     if (sameDay) {
-      return 'Today ' + date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      return 'Today ' + Fmt.clock(date);
     }
     var sameYear = date.getFullYear() === now.getFullYear();
     return date.toLocaleDateString(undefined, sameYear

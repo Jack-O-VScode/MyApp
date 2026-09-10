@@ -485,16 +485,24 @@
 
   /* ----------------------------------------------------------- appearance -- */
 
-  // The colours are a synced setting, so they can change without anyone
-  // touching this device — a pull from another one, or an imported backup.
-  // Re-apply only on a real change; this runs on every commit.
+  // Appearance is a synced setting, so it can change without anyone touching
+  // this device — a pull from another one, or an imported backup. Re-apply only
+  // on a real change; this runs on every commit.
   function applyAppearance() {
     var wanted = Store.getSettings();
     var live = Theme.current();
-    if (Theme.normalise(wanted.themeBg) !== live.bg ||
-        Theme.normalise(wanted.themeBar) !== live.bar) {
-      Theme.apply(wanted.themeBg, wanted.themeBar);
+    if (Theme.normalise(wanted.themeBg) === live.bg &&
+        Theme.normalise(wanted.themeBar) === live.bar &&
+        Theme.normalise(wanted.themeAccent) === live.accent &&
+        (wanted.textSize || Theme.DEFAULT_TEXT_SIZE) === live.textSize) {
+      return;
     }
+    Theme.apply({
+      bg: wanted.themeBg,
+      bar: wanted.themeBar,
+      accent: wanted.themeAccent,
+      textSize: wanted.textSize
+    });
   }
 
   /* ---------------------------------------------------------------- toast -- */

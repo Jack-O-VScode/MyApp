@@ -1,4 +1,4 @@
-/* Appearance: the two colours picked in App settings.
+/* Appearance: the colours and text size picked in App settings.
 
    This runs from <head>, before the body paints, so a customised app never
    flashes the default colours on the way in. That is also why it reads
@@ -6,14 +6,23 @@
    yet at that point. Once the app is up, SettingsView drives it through
    apply().
 
-   Only two colours are stored. Everything else — text, surfaces, borders, the
-   hover states — is derived from them, and derived by contrast rather than by
-   taste, so no pair of choices can produce text you cannot read.
+   Only the chosen colours are stored. Everything else — text, surfaces,
+   borders, the hover states, what is legible on a coloured button — is derived
+   from them, and derived by contrast rather than by taste, so no combination of
+   choices can produce text you cannot read.
 */
 window.Theme = (function () {
   'use strict';
 
   var STORE_KEY = 'calendar-notes.v1';
+
+  // Scales the root font size; everything is sized in rem from there.
+  var TEXT_SIZES = [
+    { id: 'small', label: 'Small', scale: 0.9 },
+    { id: 'normal', label: 'Normal', scale: 1 },
+    { id: 'large', label: 'Large', scale: 1.15 }
+  ];
+  var DEFAULT_TEXT_SIZE = 'normal';
 
   // Starting points, not limits: both colours stay editable afterwards.
   var PRESETS = [
@@ -130,8 +139,42 @@ window.Theme = (function () {
 
   /* --------------------------------------------------------------- tokens -- */
 
+  // The app's own blue, unless an accent has been picked.
+  function wantedAccent(accent, dark) {
+    return normalise(accent) || (dark ? '#7b90ff' : '#4f6bf6');
+  }
+
+  // A fill has two jobs at once: stand out from the card it sits on, and carry
+  // a label. No single rule satisfies both — a mid-blue accent on a mid-blue
+  // card can do neither — so walk the colour towards black and towards white
+  // and take the first point along either that manages both. Most colours
+  // satisfy it where they already are and never move at all.
+  function fill(surface, wanted) {
+    var best = null;
+
+    [BLACK, WHITE].forEach(function (towards) {
+      for (var step = 0; step <= 24; step++) {
+        var colour = mix(wanted, towards, step / 24);
+        if (contrast(colour, surface) < 3.2) continue;
+        var ink = contrast(WHITE, colour) >= contrast(INK, colour) ? WHITE : INK;
+        if (contrast(ink, colour) < 4.6) continue;
+
+        var moved = Math.abs(luminance(colour) - luminance(wanted));
+        if (!best || moved < best.moved) best = { colour: colour, ink: ink, moved: moved };
+        // The first hit along a direction is the least this way can move.
+        return;
+      }
+    });
+
+    // One end of one direction always qualifies — black carries white writing
+    // and shows on a light card, white carries dark writing and shows on a dark
+    // one — so this is belt and braces rather than a real case.
+    return best || { colour: poleFor(surface) === WHITE ? WHITE : BLACK,
+                     ink: poleFor(surface) === WHITE ? INK : WHITE };
+  }
+
   // Background colour -> the page, the cards and everything written on them.
-  function pageTokens(chosen) {
+  function pageTokens(chosen, accent) {
     var pole = poleFor(chosen);
     var dark = pole === WHITE;
 
@@ -141,7 +184,8 @@ window.Theme = (function () {
       dark ? mix(chosen, WHITE, 0.07) : mix(chosen, WHITE, 0.72), pole, 8.5);
     var text = readable(surface, mix(pole, chosen, 0.1), 7.5);
     var bg = deepen(chosen, text, 4.6);
-    var brand = readable(surface, dark ? '#7b90ff' : '#4f6bf6', 3.2);
+    var filled = fill(surface, wantedAccent(accent, dark));
+    var brand = filled.colour;
 
     return {
       '--bg': bg,
@@ -152,6 +196,9 @@ window.Theme = (function () {
       '--line': dark ? mix(surface, WHITE, 0.14) : mix(surface, BLACK, 0.12),
       '--brand': brand,
       '--brand-soft': mix(brand, surface, dark ? 0.8 : 0.86),
+      // Buttons and the today circle are filled with the accent, so what is
+      // written on them has to be chosen from the accent, not assumed white.
+      '--on-brand': filled.ink,
       '--accent': readable(surface, dark ? '#ff9d5c' : '#ff8a3d', 3.2),
       '--danger': readable(surface, dark ? '#ff6b6b' : '#d93a3a', 4.6),
       '--shadow': dark
@@ -162,7 +209,7 @@ window.Theme = (function () {
 
   // Bar colour -> the appbar and the dropdown menu, which are the same strip
   // as far as the eye is concerned.
-  function barTokens(chosen) {
+  function barTokens(chosen, accent) {
     var pole = poleFor(chosen);
     var dark = pole === WHITE;
     var bar = deepen(chosen, pole, 5.6);
@@ -173,8 +220,22 @@ window.Theme = (function () {
       '--bar-text': text,
       '--bar-soft': dark ? mix(bar, WHITE, 0.12) : mix(bar, BLACK, 0.06),
       '--bar-line': dark ? mix(bar, WHITE, 0.18) : mix(bar, BLACK, 0.12),
-      '--bar-accent': readable(bar, dark ? '#7b90ff' : '#4f6bf6', 3.5),
+      '--bar-accent': readable(bar, wantedAccent(accent, dark), 3.5),
       '--bar-danger': readable(bar, dark ? '#ff6b6b' : '#d93a3a', 3.5)
+    };
+  }
+
+  // An accent on its own still needs the page tokens rewritten, since --brand
+  // and everything derived from it live there.
+  function accentOnlyTokens(accent) {
+    var dark = window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var surface = dark ? '#1b1e2c' : '#ffffff';
+    var filled = fill(surface, wantedAccent(accent, dark));
+    return {
+      '--brand': filled.colour,
+      '--brand-soft': mix(filled.colour, surface, dark ? 0.8 : 0.86),
+      '--on-brand': filled.ink
     };
   }
 
@@ -183,7 +244,7 @@ window.Theme = (function () {
 
   /* ---------------------------------------------------------------- apply -- */
 
-  var current = { bg: '', bar: '' };
+  var current = { bg: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE };
 
   function write(root, tokens, keys) {
     keys.forEach(function (key) {
@@ -210,21 +271,42 @@ window.Theme = (function () {
     meta.setAttribute('content', colour);
   }
 
-  function apply(bg, bar) {
+  function sizeFor(id) {
+    var found = null;
+    TEXT_SIZES.forEach(function (size) { if (size.id === id) found = size; });
+    return found || { id: DEFAULT_TEXT_SIZE, scale: 1 };
+  }
+
+  function apply(values) {
+    var wanted = values || {};
     var root = document.documentElement;
-    current.bg = normalise(bg);
-    current.bar = normalise(bar);
+    current.bg = normalise(wanted.bg);
+    current.bar = normalise(wanted.bar);
+    current.accent = normalise(wanted.accent);
+    var size = sizeFor(wanted.textSize);
+    current.textSize = size.id;
 
     // Nothing chosen: drop every override so the stylesheet's own light and
     // dark schemes take back over, live.
-    write(root, current.bg ? pageTokens(current.bg) : null, PAGE_KEYS);
-    write(root, current.bar ? barTokens(current.bar) : null, BAR_KEYS);
+    write(root, current.bg ? pageTokens(current.bg, current.accent) : null, PAGE_KEYS);
+    write(root, current.bar ? barTokens(current.bar, current.accent) : null, BAR_KEYS);
+
+    // An accent with no page colour still has to land somewhere.
+    if (!current.bg && current.accent) {
+      var extra = accentOnlyTokens(current.accent);
+      Object.keys(extra).forEach(function (key) {
+        root.style.setProperty(key, extra[key]);
+      });
+    }
 
     if (current.bg) {
       root.style.setProperty('color-scheme', poleFor(current.bg) === WHITE ? 'dark' : 'light');
     } else {
       root.style.removeProperty('color-scheme');
     }
+
+    if (size.scale === 1) root.style.removeProperty('--text-scale');
+    else root.style.setProperty('--text-scale', String(size.scale));
 
     themeColor(current.bar || current.bg || '');
     return current;
@@ -244,19 +326,26 @@ window.Theme = (function () {
   }
 
   var start = saved();
-  apply(start.themeBg, start.themeBar);
+  apply({
+    bg: start.themeBg,
+    bar: start.themeBar,
+    accent: start.themeAccent,
+    textSize: start.textSize
+  });
 
   // A derived palette is a snapshot of the system scheme, so re-derive it when
   // that flips. With nothing customised there is nothing to redo — CSS has it.
   if (window.matchMedia) {
     var query = window.matchMedia('(prefers-color-scheme: dark)');
-    var onChange = function () { apply(current.bg, current.bar); };
+    var onChange = function () { apply(current); };
     if (query.addEventListener) query.addEventListener('change', onChange);
     else if (query.addListener) query.addListener(onChange);
   }
 
   return {
     PRESETS: PRESETS,
+    TEXT_SIZES: TEXT_SIZES,
+    DEFAULT_TEXT_SIZE: DEFAULT_TEXT_SIZE,
     apply: apply,
     normalise: normalise,
     contrast: contrast,
@@ -268,15 +357,21 @@ window.Theme = (function () {
       var style = getComputedStyle(document.documentElement);
       return {
         bg: normalise(style.getPropertyValue('--bg')) || '#f4f5fb',
-        bar: normalise(style.getPropertyValue('--bar')) || '#ffffff'
+        bar: normalise(style.getPropertyValue('--bar')) || '#ffffff',
+        accent: normalise(style.getPropertyValue('--brand')) || '#4f6bf6'
       };
     },
-    tokens: function (bg, bar) {
+    tokens: function (bg, bar, accent) {
       return {
-        page: normalise(bg) ? pageTokens(normalise(bg)) : null,
-        bar: normalise(bar) ? barTokens(normalise(bar)) : null
+        page: normalise(bg) ? pageTokens(normalise(bg), accent) : null,
+        bar: normalise(bar) ? barTokens(normalise(bar), accent) : null
       };
     },
-    current: function () { return { bg: current.bg, bar: current.bar }; }
+    current: function () {
+      return {
+        bg: current.bg, bar: current.bar,
+        accent: current.accent, textSize: current.textSize
+      };
+    }
   };
 })();
