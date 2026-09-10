@@ -1224,41 +1224,4 @@ main {
   background: linear-gradient(135deg, var(--dot-bg) 0 50%, var(--dot-bar) 50% 100%);
 }
 
-.icon-choices {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  margin-top: 4px;
-}
-.icon-choice {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 12px 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: inherit;
-  font: inherit;
-  font-size: .84rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.icon-choice:hover { border-color: var(--brand); }
-.icon-choice.is-on {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--brand);
-  box-shadow: inset 0 0 0 1px var(--brand);
-}
-.icon-choice img {
-  width: 68px;
-  height: 68px;
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-}
-.icon-choice .icon-tick { font-size: .78rem; opacity: 0; }
-.icon-choice.is-on .icon-tick { opacity: 1; }
-
-
 [hidden] { display: none !important; }

@@ -111,36 +111,6 @@ window.SettingsView = (function () {
     });
   }
 
-  /* ----------------------------------------------------------------- icon -- */
-
-  function buildIcons() {
-    els.icons.innerHTML = '';
-    Theme.ICONS.forEach(function (icon) {
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'icon-choice';
-      button.dataset.icon = icon.id;
-      button.setAttribute('role', 'radio');
-      button.innerHTML =
-        '<img alt="" width="68" height="68" loading="lazy">' +
-        '<span class="icon-label"></span>' +
-        '<span class="icon-tick">In use</span>';
-      button.querySelector('img').src = 'icons/' + icon.id + '/icon-192.png';
-      button.querySelector('.icon-label').textContent = icon.label;
-      button.setAttribute('aria-label', icon.label + ' app icon');
-      els.icons.appendChild(button);
-    });
-  }
-
-  function renderIcon() {
-    var chosen = settings().appIcon || Theme.DEFAULT_ICON;
-    Array.prototype.forEach.call(els.icons.children, function (button) {
-      var on = button.dataset.icon === chosen;
-      button.classList.toggle('is-on', on);
-      button.setAttribute('aria-checked', on ? 'true' : 'false');
-    });
-  }
-
   /* ----------------------------------------------------------------- wire -- */
 
   function init() {
@@ -151,10 +121,8 @@ window.SettingsView = (function () {
     els.reset = document.getElementById('theme-reset');
     els.followNote = document.getElementById('theme-follow-note');
     els.presets = document.getElementById('theme-presets');
-    els.icons = document.getElementById('icon-choices');
 
     buildPresets();
-    buildIcons();
 
     ['input', 'change'].forEach(function (type) {
       els.bg.addEventListener(type, function () {
@@ -175,29 +143,10 @@ window.SettingsView = (function () {
       if (!button) return;
       setColours({ themeBg: button.dataset.bg, themeBar: button.dataset.bar }, true);
     });
-
-    els.icons.addEventListener('click', function (clickEvent) {
-      var button = clickEvent.target.closest('.icon-choice');
-      if (!button) return;
-      var chosen = button.dataset.icon;
-
-      saveNow({ appIcon: chosen });
-      Theme.applyIcon(chosen);
-      renderIcon();
-
-      // The tab icon has already changed. The Home Screen icon comes from the
-      // markup, so reload once the worker is holding the choice — the page
-      // that comes back is the one Add to Home Screen will read.
-      Theme.publishIcon(chosen).then(function (published) {
-        if (published) location.reload();
-        else App.toast('Icon set. Reload the app to finish applying it.');
-      });
-    });
   }
 
   function render() {
     renderColours();
-    renderIcon();
   }
 
   return { init: init, render: render };

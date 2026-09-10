@@ -1,5 +1,4 @@
-/* Appearance: the two colours picked in App settings, and which app icon is in
-   use.
+/* Appearance: the two colours picked in App settings.
 
    This runs from <head>, before the body paints, so a customised app never
    flashes the default colours on the way in. That is also why it reads
@@ -15,15 +14,6 @@ window.Theme = (function () {
   'use strict';
 
   var STORE_KEY = 'calendar-notes.v1';
-  var DEFAULT_ICON = 'classic';
-
-  var ICONS = [
-    { id: 'classic', label: 'Classic' },
-    { id: 'midnight', label: 'Midnight' },
-    { id: 'sunrise', label: 'Sunrise' },
-    { id: 'forest', label: 'Forest' },
-    { id: 'mono', label: 'Mono' }
-  ];
 
   // Starting points, not limits: both colours stay editable afterwards.
   var PRESETS = [
@@ -193,7 +183,7 @@ window.Theme = (function () {
 
   /* ---------------------------------------------------------------- apply -- */
 
-  var current = { bg: '', bar: '', icon: DEFAULT_ICON };
+  var current = { bg: '', bar: '' };
 
   function write(root, tokens, keys) {
     keys.forEach(function (key) {
@@ -240,71 +230,6 @@ window.Theme = (function () {
     return current;
   }
 
-  /* ----------------------------------------------------------------- icon -- */
-
-  function iconExists(id) {
-    return ICONS.some(function (entry) { return entry.id === id; });
-  }
-
-  // Which icon the page was served with. The worker rewrites those links on the
-  // way out, so this is the answer even when storage is unavailable and there
-  // is nothing saved to read — without it, applying a stored blank would undo
-  // the worker's work.
-  function iconFromMarkup() {
-    var node = document.querySelector('link[rel="manifest"]');
-    var match = /manifest-([a-z0-9-]+)\.webmanifest/.exec(node ? node.getAttribute('href') || '' : '');
-    return match && iconExists(match[1]) ? match[1] : DEFAULT_ICON;
-  }
-
-  function link(selector, href) {
-    var node = document.querySelector(selector);
-    if (node) node.setAttribute('href', href);
-  }
-
-  // Swapping the tags changes the browser-tab favicon straight away. It does
-  // not change a Home Screen icon: iOS reads apple-touch-icon out of the markup
-  // it was served, before any of this ran. publishIcon() is what fixes that.
-  function applyIcon(id) {
-    current.icon = iconExists(id) ? id : DEFAULT_ICON;
-    var folder = 'icons/' + current.icon + '/';
-
-    link('link[rel="apple-touch-icon"]', folder + 'apple-touch-icon.png');
-    link('link[rel="icon"][sizes="32x32"]', folder + 'favicon-32.png');
-    link('link[rel="icon"][sizes="192x192"]', folder + 'icon-192.png');
-    link('link[rel="manifest"]', 'manifest-' + current.icon + '.webmanifest');
-    return current.icon;
-  }
-
-  // Hand the choice to the service worker, which rewrites index.html as it
-  // serves it. Resolves true once the worker has it, which is the caller's cue
-  // that reloading will now produce a page carrying the right icon.
-  function publishIcon(id) {
-    var wanted = iconExists(id) ? id : DEFAULT_ICON;
-    if (!navigator.serviceWorker) return Promise.resolve(false);
-
-    return navigator.serviceWorker.ready.then(function (registration) {
-      var worker = registration.active;
-      if (!worker) return false;
-      return new Promise(function (resolve) {
-        var channel = new MessageChannel();
-        var settled = false;
-        var finish = function (ok) {
-          if (settled) return;
-          settled = true;
-          resolve(ok);
-        };
-        channel.port1.onmessage = function (event) {
-          finish(!!(event.data && event.data.ok));
-        };
-        worker.postMessage({ type: 'app-icon', icon: wanted }, [channel.port2]);
-        // Never leave the caller waiting on a worker that has gone quiet.
-        setTimeout(function () { finish(false); }, 2000);
-      });
-    }).catch(function () {
-      return false;
-    });
-  }
-
   /* ----------------------------------------------------------------- boot -- */
 
   // Read straight from storage: this runs before Store exists.
@@ -320,10 +245,6 @@ window.Theme = (function () {
 
   var start = saved();
   apply(start.themeBg, start.themeBar);
-  applyIcon(start.appIcon || iconFromMarkup());
-  // The choice may have arrived on another device, or come back from a backup,
-  // so make sure the worker is holding whatever this device now believes.
-  publishIcon(start.appIcon || iconFromMarkup());
 
   // A derived palette is a snapshot of the system scheme, so re-derive it when
   // that flips. With nothing customised there is nothing to redo — CSS has it.
@@ -335,12 +256,8 @@ window.Theme = (function () {
   }
 
   return {
-    ICONS: ICONS,
     PRESETS: PRESETS,
-    DEFAULT_ICON: DEFAULT_ICON,
     apply: apply,
-    applyIcon: applyIcon,
-    publishIcon: publishIcon,
     normalise: normalise,
     contrast: contrast,
     // What the wheels should show for a colour nobody has chosen: whatever the
@@ -360,6 +277,6 @@ window.Theme = (function () {
         bar: normalise(bar) ? barTokens(normalise(bar)) : null
       };
     },
-    current: function () { return { bg: current.bg, bar: current.bar, icon: current.icon }; }
+    current: function () { return { bg: current.bg, bar: current.bar }; }
   };
 })();

@@ -485,22 +485,15 @@
 
   /* ----------------------------------------------------------- appearance -- */
 
-  // The colours and the icon are synced settings, so they can change without
-  // anyone touching this device — a pull from another one, or an imported
-  // backup. Re-apply only on a real change; this runs on every commit.
+  // The colours are a synced setting, so they can change without anyone
+  // touching this device — a pull from another one, or an imported backup.
+  // Re-apply only on a real change; this runs on every commit.
   function applyAppearance() {
     var wanted = Store.getSettings();
     var live = Theme.current();
     if (Theme.normalise(wanted.themeBg) !== live.bg ||
         Theme.normalise(wanted.themeBar) !== live.bar) {
       Theme.apply(wanted.themeBg, wanted.themeBar);
-    }
-    if ((wanted.appIcon || Theme.DEFAULT_ICON) !== live.icon) {
-      Theme.applyIcon(wanted.appIcon);
-      // No reload here: a choice that arrived from another device should not
-      // yank the page out from under whatever is being typed. The worker knows,
-      // and the next ordinary load picks it up.
-      Theme.publishIcon(wanted.appIcon);
     }
   }
 

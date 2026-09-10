@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the PWA icon sets.
+"""Generate the PWA icon set.
 
-The app offers a choice of icons, so the same mark is rendered once per palette
-in THEMES. The default palette also lands unprefixed in icons/, which is what
-index.html and manifest.webmanifest point at before anyone picks anything.
+The mark is drawn once in the palette named by DEFAULT_THEME and written to
+icons/, which is what index.html and manifest.webmanifest point at.
 
 No third-party imaging libraries are available, so this draws the icon into a
 plain RGB buffer and writes the PNGs with zlib + struct. Everything is rendered
@@ -22,11 +21,13 @@ MASTER = 1024
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 OUT_DIR = os.path.join(ROOT, "icons")
 
+# Only DEFAULT_THEME is written out. The others are kept because switching the
+# app's icon is a one-line change here — the artwork is the same mark either way.
 DEFAULT_THEME = "classic"
 
 # One mark, five palettes. `paper` is the calendar card, `ink` the day dots on
 # it, `accent` the header band, `note` the page tucked behind and `rule` its
-# lines. `theme` is what the matching manifest advertises to the OS.
+# lines. `theme` is what the manifest advertises to the OS.
 THEMES = {
     "classic": {
         "label": "Classic",
@@ -284,16 +285,6 @@ def write_set(palette, out_dir, icon_dir_for_manifest, manifest_path):
 
 
 def main():
-    for name, palette in THEMES.items():
-        write_set(
-            palette,
-            os.path.join(OUT_DIR, name),
-            "icons/%s/" % name,
-            os.path.join(ROOT, "manifest-%s.webmanifest" % name),
-        )
-
-    # The default palette also lives unprefixed, so a browser that never runs
-    # our JavaScript still finds an icon and a manifest at the documented paths.
     write_set(
         THEMES[DEFAULT_THEME],
         OUT_DIR,

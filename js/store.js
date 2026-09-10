@@ -623,8 +623,7 @@ window.Store = (function () {
     defaultRemind: -1,      // pre-selected reminder for a new event
     pinnedCities: [],       // cities kept at the top of the timezone list
     themeBg: '',            // App settings: page colour, '' follows the system
-    themeBar: '',           // App settings: appbar and menu colour
-    appIcon: 'classic'      // App settings: which icon set the app installs with
+    themeBar: ''            // App settings: appbar and menu colour
   };
 
   function getSettings() {
