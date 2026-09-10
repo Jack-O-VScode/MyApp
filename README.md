@@ -48,6 +48,18 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 - A courier, not a filing cabinet: everything is deleted 24 hours after it is
   sent, collected or not, and **Remove** clears one sooner.
 
+**App settings**
+- **App theme colour** — two colour wheels: one for the background (the page
+  behind everything) and one for the bar (the strip at the top and the menu that
+  drops out of it). Text, borders and highlights are worked out from what you
+  pick, by contrast rather than by taste, so no pair of colours can leave you
+  with writing you cannot read.
+- **Reset** hands the app back to your device's light/dark setting.
+- **App icon** — five to choose from. Pick before installing: iPhone and Windows
+  both copy the icon at the moment you add the app and keep that copy, so
+  changing an installed one means removing the app and adding it again.
+- Both choices ride along with sync, so the app looks the same on every device.
+
 **Reminders** (optional, extra setup)
 - Per-event reminders, from "when it starts" to a day before.
 - One daily summary of what is due, instead of a ping per task.
@@ -56,7 +68,8 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 **Everywhere**
 - Optional **sync**: type on the PC, see it on the phone (setup below).
 - Works with no connection at all once it has loaded once.
-- Light and dark themes follow the system setting.
+- Light and dark themes follow the system setting until you pick your own in
+  **App settings**.
 - **Export backup** / **Import backup** in the menu write and read a JSON file.
   Importing merges by entry, so re-importing the same file changes nothing.
 
@@ -453,9 +466,11 @@ Consequences worth knowing:
 ## Project layout
 
 ```
-index.html              markup for all five views, the menu and the dialogs
+index.html              markup for every view, the menu and the dialogs
 css/app.css             all styling, including the light/dark palette
 js/config.js            which project this copy connects to, and the push key
+js/theme.js             derives the palette from the two chosen colours; runs
+                        from <head> so a custom app never flashes the default
 js/store.js             data layer: events, tasks, notes, recurrence, search
 js/calendar.js          month grid, day panel, event editor
 js/tasks.js             task list, task editor, shared task-row renderer
@@ -465,13 +480,17 @@ js/zones.js             the city list behind the Timezones screen
 js/clocks.js            the Timezones screen: search, pinning, live clocks
 js/transfers.js         device-to-device file transfer via Supabase Storage
 js/reminders.js         works out when reminders fire and keeps the table current
+js/settings.js          the App settings screen: colour wheels and icon choice
 supabase/functions/     the scheduled sender that turns those rows into pushes
 js/sync.js              optional Supabase sync: auth, pull/push, merge
 js/app.js               menu, view switching, badge, sync panel, backups
 sw.js                   offline cache for the app shell
 manifest.webmanifest    name, icons, colours, Windows jump-list shortcuts
-icons/                  generated PNG icons (Windows tiles, iOS home screen)
-tools/make_icons.py     regenerates icons/ — run after editing the artwork
+manifest-*.webmanifest  one per app icon; App settings swaps the <link> to these
+icons/                  generated PNG icons (Windows tiles, iOS home screen),
+                        with one subfolder per icon choice
+tools/make_icons.py     regenerates icons/ and every manifest — run after
+                        editing the artwork or a palette in THEMES
 tools/serve.js          zero-dependency static server for local use
 ```
 

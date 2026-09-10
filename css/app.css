@@ -13,6 +13,17 @@
   --accent: #ff8a3d;
   --danger: #d93a3a;
   --shadow: 0 6px 24px rgba(24, 30, 60, .10);
+
+  /* The appbar and the menu read from their own tokens so App settings can
+     recolour that strip on its own. Left alone they simply follow the surface,
+     which is how the app looked before the setting existed. */
+  --bar: var(--surface);
+  --bar-text: var(--text);
+  --bar-soft: var(--surface-2);
+  --bar-line: var(--line);
+  --bar-accent: var(--brand);
+  --bar-danger: var(--danger);
+
   --radius: 14px;
   --appbar-h: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -82,9 +93,14 @@ svg {
   gap: 8px;
   height: calc(var(--appbar-h) + var(--safe-top));
   padding: var(--safe-top) calc(10px + var(--safe-right)) 0 calc(10px + var(--safe-left));
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  background: var(--bar);
+  color: var(--bar-text);
+  border-bottom: 1px solid var(--bar-line);
 }
+.appbar .icon-button { color: inherit; }
+.appbar .icon-button:hover { background: var(--bar-soft); }
+.appbar .text-button { color: var(--bar-accent); }
+.appbar .text-button:hover { background: var(--bar-soft); }
 
 .appbar-title {
   flex: 1;
@@ -144,9 +160,10 @@ svg {
   z-index: 40;
   min-width: 232px;
   padding: 6px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--bar-line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--bar);
+  color: var(--bar-text);
   box-shadow: var(--shadow);
   transform-origin: top left;
   animation: menu-in .14s ease-out;
@@ -171,9 +188,9 @@ svg {
   text-align: left;
   cursor: pointer;
 }
-.menu-item:hover { background: var(--surface-2); }
-.menu-item.is-current { color: var(--brand); font-weight: 600; background: var(--brand-soft); }
-.menu-sep { margin: 6px 8px; border: 0; border-top: 1px solid var(--line); }
+.menu-item:hover { background: var(--bar-soft); }
+.menu-item.is-current { color: var(--bar-accent); font-weight: 600; background: var(--bar-soft); }
+.menu-sep { margin: 6px 8px; border: 0; border-top: 1px solid var(--bar-line); }
 
 .scrim {
   position: fixed;
@@ -1030,6 +1047,15 @@ main {
 .menu-chip[data-state="error"],
 .menu-chip[data-state="signed-out"] { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
 
+.menu .menu-chip { background: var(--bar-soft); color: var(--bar-text); }
+.menu .menu-chip[data-state="ok"],
+.menu .menu-chip[data-state="syncing"] { background: var(--bar-soft); color: var(--bar-accent); }
+.menu .menu-chip[data-state="error"],
+.menu .menu-chip[data-state="signed-out"] {
+  background: color-mix(in srgb, var(--bar-danger) 18%, transparent);
+  color: var(--bar-danger);
+}
+
 .sync-state {
   margin: 0 0 14px;
   padding: 10px 12px;
@@ -1109,5 +1135,130 @@ main {
   font-size: .9rem;
   box-shadow: var(--shadow);
 }
+
+/* ------------------------------------------------------- app settings -- */
+.set-card { padding: 14px 16px 18px; }
+.set-card + .set-card { margin-top: 16px; }
+.set-card .card-head { padding-bottom: 2px; }
+
+.set-note {
+  margin: 0 0 14px;
+  color: var(--text-soft);
+  font-size: .88rem;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.set-row:first-child { border-top: 0; }
+.set-row-text { flex: 1; min-width: 0; }
+.set-row-text strong { display: block; font-weight: 620; }
+.set-row-text span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-soft);
+  font-size: .84rem;
+}
+
+/* The swatch is the colour input itself, blown up and stripped of its chrome,
+   so tapping anywhere on it opens the platform's colour wheel. */
+.swatch-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.swatch-input {
+  width: 54px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.swatch-input::-webkit-color-swatch-wrapper { padding: 3px; }
+.swatch-input::-webkit-color-swatch { border: 0; border-radius: 8px; }
+.swatch-input::-moz-color-swatch { border: 0; border-radius: 8px; }
+.swatch-value {
+  min-width: 4.9em;
+  color: var(--text-soft);
+  font-size: .82rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+.preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font-size: .86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.preset:hover { border-color: var(--brand); }
+.preset.is-on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+.preset-dot {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  /* Half background, half bar: the pair the preset would set. */
+  background: linear-gradient(135deg, var(--dot-bg) 0 50%, var(--dot-bar) 50% 100%);
+}
+
+.icon-choices {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  margin-top: 4px;
+}
+.icon-choice {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 12px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: .84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.icon-choice:hover { border-color: var(--brand); }
+.icon-choice.is-on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.icon-choice img {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+.icon-choice .icon-tick { font-size: .78rem; opacity: 0; }
+.icon-choice.is-on .icon-tick { opacity: 1; }
+
 
 [hidden] { display: none !important; }

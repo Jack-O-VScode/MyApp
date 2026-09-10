@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the PWA icon set.
+"""Generate the PWA icon sets.
+
+The app offers a choice of icons, so the same mark is rendered once per palette
+in THEMES. The default palette also lands unprefixed in icons/, which is what
+index.html and manifest.webmanifest point at before anyone picks anything.
 
 No third-party imaging libraries are available, so this draws the icon into a
 plain RGB buffer and writes the PNGs with zlib + struct. Everything is rendered
@@ -15,13 +19,56 @@ import struct
 import zlib
 
 MASTER = 1024
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icons")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+OUT_DIR = os.path.join(ROOT, "icons")
 
-BG_TOP = (0x4F, 0x6B, 0xF6)
-BG_BOTTOM = (0x7C, 0x4D, 0xF0)
-PAPER = (0xFF, 0xFF, 0xFF)
-INK = (0x1E, 0x22, 0x3A)
-ACCENT = (0xFF, 0x8A, 0x3D)
+DEFAULT_THEME = "classic"
+
+# One mark, five palettes. `paper` is the calendar card, `ink` the day dots on
+# it, `accent` the header band, `note` the page tucked behind and `rule` its
+# lines. `theme` is what the matching manifest advertises to the OS.
+THEMES = {
+    "classic": {
+        "label": "Classic",
+        "top": (0x4F, 0x6B, 0xF6), "bottom": (0x7C, 0x4D, 0xF0),
+        "paper": (0xFF, 0xFF, 0xFF), "ink": (0x1E, 0x22, 0x3A),
+        "accent": (0xFF, 0x8A, 0x3D),
+        "note": (0xE7, 0xEC, 0xFF), "rule": (0x9A, 0xA6, 0xD8),
+        "theme": "#4f6bf6",
+    },
+    "midnight": {
+        "label": "Midnight",
+        "top": (0x24, 0x2E, 0x52), "bottom": (0x0B, 0x0E, 0x1C),
+        "paper": (0xF2, 0xF5, 0xFF), "ink": (0x16, 0x1B, 0x2E),
+        "accent": (0x35, 0xD0, 0xC5),
+        "note": (0x33, 0x3E, 0x66), "rule": (0x7C, 0x8A, 0xBD),
+        "theme": "#141a2e",
+    },
+    "sunrise": {
+        "label": "Sunrise",
+        "top": (0xFF, 0x9A, 0x3D), "bottom": (0xE8, 0x3E, 0x8C),
+        "paper": (0xFF, 0xFB, 0xF5), "ink": (0x4A, 0x1C, 0x3A),
+        "accent": (0xFF, 0xC8, 0x4B),
+        "note": (0xFF, 0xE0, 0xCC), "rule": (0xD1, 0x84, 0x73),
+        "theme": "#f4632f",
+    },
+    "forest": {
+        "label": "Forest",
+        "top": (0x35, 0x9B, 0x74), "bottom": (0x12, 0x44, 0x39),
+        "paper": (0xFC, 0xFA, 0xF0), "ink": (0x1B, 0x33, 0x2B),
+        "accent": (0xF2, 0xB1, 0x3C),
+        "note": (0xD5, 0xEC, 0xDD), "rule": (0x76, 0xA3, 0x8C),
+        "theme": "#22715a",
+    },
+    "mono": {
+        "label": "Mono",
+        "top": (0xFA, 0xFB, 0xFF), "bottom": (0xDF, 0xE3, 0xEE),
+        "paper": (0x1C, 0x20, 0x33), "ink": (0xEE, 0xF0, 0xF8),
+        "accent": (0xE5, 0x3D, 0x3D),
+        "note": (0xC9, 0xD0, 0xE3), "rule": (0xFF, 0xFF, 0xFF),
+        "theme": "#e9ebf2",
+    },
+}
 
 
 class Canvas:
@@ -133,17 +180,14 @@ def write_png(path, rows):
         handle.write(png)
 
 
-def draw(canvas, inset):
-    """Draw the calendar-and-note mark. `inset` shrinks the artwork so maskable
-    icons keep their content inside the safe zone."""
+def draw(canvas, palette, inset):
+    """Draw the calendar-and-note mark in `palette`. `inset` shrinks the artwork
+    so maskable icons keep their content inside the safe zone."""
     n = canvas.size
-    canvas.vertical_gradient(BG_TOP, BG_BOTTOM)
+    canvas.vertical_gradient(palette["top"], palette["bottom"])
 
     art = n * (1 - 2 * inset)
     ox = oy = n * inset
-
-    def u(v):
-        return ox + art * v, oy + art * v
 
     def ux(v):
         return ox + art * v
@@ -151,22 +195,26 @@ def draw(canvas, inset):
     def uy(v):
         return oy + art * v
 
+    paper = palette["paper"]
+    ink = palette["ink"]
+    accent = palette["accent"]
+
     # Note page, tucked behind and to the right.
-    canvas.rounded_rect(ux(0.42), uy(0.30), art * 0.40, art * 0.52, art * 0.06, (0xE7, 0xEC, 0xFF))
+    canvas.rounded_rect(ux(0.42), uy(0.30), art * 0.40, art * 0.52, art * 0.06, palette["note"])
     for i in range(4):
         canvas.rounded_rect(
-            ux(0.50), uy(0.42 + i * 0.10), art * 0.24, art * 0.035, art * 0.018, (0x9A, 0xA6, 0xD8)
+            ux(0.50), uy(0.42 + i * 0.10), art * 0.24, art * 0.035, art * 0.018, palette["rule"]
         )
 
     # Calendar body.
-    canvas.rounded_rect(ux(0.14), uy(0.22), art * 0.46, art * 0.60, art * 0.08, PAPER)
+    canvas.rounded_rect(ux(0.14), uy(0.22), art * 0.46, art * 0.60, art * 0.08, paper)
     # Header band.
-    canvas.rounded_rect(ux(0.14), uy(0.22), art * 0.46, art * 0.16, art * 0.08, ACCENT)
-    canvas.rounded_rect(ux(0.14), uy(0.32), art * 0.46, art * 0.06, 0, ACCENT)
+    canvas.rounded_rect(ux(0.14), uy(0.22), art * 0.46, art * 0.16, art * 0.08, accent)
+    canvas.rounded_rect(ux(0.14), uy(0.32), art * 0.46, art * 0.06, 0, accent)
 
     # Binding rings.
     for cx in (0.25, 0.49):
-        canvas.rounded_rect(ux(cx), uy(0.14), art * 0.045, art * 0.14, art * 0.022, PAPER)
+        canvas.rounded_rect(ux(cx), uy(0.14), art * 0.045, art * 0.14, art * 0.022, paper)
 
     # Day dots.
     for row in range(3):
@@ -175,30 +223,83 @@ def draw(canvas, inset):
                 ux(0.225 + col * 0.115),
                 uy(0.475 + row * 0.115),
                 art * 0.030,
-                INK if (row, col) != (1, 1) else ACCENT,
+                ink if (row, col) != (1, 1) else accent,
             )
 
 
+# name -> (maskable?, pixel size)
+TARGETS = [
+    ("icon-512.png", False, 512),
+    ("icon-192.png", False, 192),
+    ("apple-touch-icon.png", False, 180),
+    ("favicon-32.png", False, 32),
+    ("icon-maskable-512.png", True, 512),
+    ("icon-maskable-192.png", True, 192),
+]
+
+MANIFEST = """{
+  "name": "Calendar & Notes",
+  "short_name": "Cal+Notes",
+  "description": "A calendar and a notepad in one app, stored on your device and usable offline.",
+  "id": "./",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#f4f5fb",
+  "theme_color": "%(theme)s",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "%(dir)sicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "%(dir)sicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "%(dir)sicon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "%(dir)sicon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Calendar", "url": "index.html#calendar", "icons": [{ "src": "%(dir)sicon-192.png", "sizes": "192x192" }] },
+    { "name": "Notes", "url": "index.html#notes", "icons": [{ "src": "%(dir)sicon-192.png", "sizes": "192x192" }] }
+  ]
+}
+"""
+
+
+def write_set(palette, out_dir, icon_dir_for_manifest, manifest_path):
+    os.makedirs(out_dir, exist_ok=True)
+
+    rendered = {}
+    for maskable in (False, True):
+        canvas = Canvas(MASTER)
+        draw(canvas, palette, inset=0.16 if maskable else 0.055)
+        rendered[maskable] = canvas
+
+    for name, maskable, size in TARGETS:
+        path = os.path.join(out_dir, name)
+        write_png(path, rendered[maskable].resized(size))
+        print("wrote", os.path.relpath(path, ROOT))
+
+    with open(manifest_path, "w", encoding="utf-8") as handle:
+        handle.write(MANIFEST % {"theme": palette["theme"], "dir": icon_dir_for_manifest})
+    print("wrote", os.path.relpath(manifest_path, ROOT))
+
+
 def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
+    for name, palette in THEMES.items():
+        write_set(
+            palette,
+            os.path.join(OUT_DIR, name),
+            "icons/%s/" % name,
+            os.path.join(ROOT, "manifest-%s.webmanifest" % name),
+        )
 
-    standard = Canvas(MASTER)
-    draw(standard, inset=0.055)
-    maskable = Canvas(MASTER)
-    draw(maskable, inset=0.16)
-
-    targets = [
-        (standard, "icon-512.png", 512),
-        (standard, "icon-192.png", 192),
-        (standard, "apple-touch-icon.png", 180),
-        (standard, "favicon-32.png", 32),
-        (maskable, "icon-maskable-512.png", 512),
-        (maskable, "icon-maskable-192.png", 192),
-    ]
-    for canvas, name, size in targets:
-        path = os.path.join(OUT_DIR, name)
-        write_png(path, canvas.resized(size))
-        print("wrote", os.path.relpath(path))
+    # The default palette also lives unprefixed, so a browser that never runs
+    # our JavaScript still finds an icon and a manifest at the documented paths.
+    write_set(
+        THEMES[DEFAULT_THEME],
+        OUT_DIR,
+        "icons/",
+        os.path.join(ROOT, "manifest.webmanifest"),
+    )
 
 
 if __name__ == "__main__":

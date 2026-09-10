@@ -1,12 +1,13 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v9';
+var CACHE = 'calendar-notes-v10';
 
 var SHELL = [
   './',
   'index.html',
   'css/app.css',
   'js/config.js',
+  'js/theme.js',
   'js/store.js',
   'js/zones.js',
   'js/clocks.js',
@@ -17,8 +18,16 @@ var SHELL = [
   'js/notes.js',
   'js/reminders.js',
   'js/sync.js',
+  'js/settings.js',
   'js/app.js',
   'manifest.webmanifest',
+  // One per app icon. The PNGs behind them are not precached — opening App
+  // settings renders all five previews, which is what puts them in the cache.
+  'manifest-classic.webmanifest',
+  'manifest-midnight.webmanifest',
+  'manifest-sunrise.webmanifest',
+  'manifest-forest.webmanifest',
+  'manifest-mono.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-192.png',

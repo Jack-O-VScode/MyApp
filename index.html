@@ -20,6 +20,9 @@
 <link rel="icon" href="icons/icon-192.png" sizes="192x192">
 
 <link rel="stylesheet" href="css/app.css">
+
+<!-- Applies the saved colours and icon before the body paints. -->
+<script src="js/theme.js"></script>
 </head>
 <body>
 
@@ -61,6 +64,10 @@
       <span>Transfer</span>
     </button>
     <hr class="menu-sep">
+    <button class="menu-item" role="menuitem" data-view="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+      <span>App settings</span>
+    </button>
     <button class="menu-item" role="menuitem" data-action="reminders">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg>
       <span>Reminders</span>
@@ -262,6 +269,57 @@
       <p class="help-note">Files are deleted automatically 24 hours after they are sent,
         picked up or not. Remove one sooner with <strong>Remove</strong>.</p>
     </div>
+  </section>
+
+  <!-- ------------------------------- Settings ------------------------------- -->
+  <section id="view-settings" class="view" aria-label="App settings" hidden>
+    <section class="card set-card">
+      <div class="card-head">
+        <h2>App theme colour</h2>
+        <button id="theme-reset" class="button small" type="button" hidden>Reset</button>
+      </div>
+      <p class="set-note">Both colours travel with your account, so a change here
+        turns up on your other devices too. Text and borders are worked out from
+        what you pick, so nothing ends up unreadable.</p>
+
+      <div class="set-row">
+        <div class="set-row-text">
+          <strong>Background colour</strong>
+          <span>The main page, behind your calendar, tasks and notes.</span>
+        </div>
+        <label class="swatch-field">
+          <input id="theme-bg" class="swatch-input" type="color" aria-label="Background colour">
+          <span id="theme-bg-value" class="swatch-value"></span>
+        </label>
+      </div>
+
+      <div class="set-row">
+        <div class="set-row-text">
+          <strong>Bar colour</strong>
+          <span>The bar across the top and the menu that drops out of it.</span>
+        </div>
+        <label class="swatch-field">
+          <input id="theme-bar" class="swatch-input" type="color" aria-label="Bar colour">
+          <span id="theme-bar-value" class="swatch-value"></span>
+        </label>
+      </div>
+
+      <p id="theme-follow-note" class="help-note">Right now the app follows your
+        device&rsquo;s light or dark setting. Pick a colour to take over from it.</p>
+
+      <div id="theme-presets" class="preset-list" role="group" aria-label="Colour presets"></div>
+    </section>
+
+    <section class="card set-card">
+      <div class="card-head">
+        <h2>App icon</h2>
+      </div>
+      <p class="set-note">Pick the icon before you install the app. Both iPhone and
+        Windows copy the icon at the moment you add the app, and keep that copy —
+        to change one that is already installed, remove the app and add it again.</p>
+
+      <div id="icon-choices" class="icon-choices" role="radiogroup" aria-label="App icon"></div>
+    </section>
   </section>
 </main>
 
@@ -669,6 +727,7 @@ create index if not exists reminders_pending
 <script src="js/transfers.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/reminders.js"></script>
+<script src="js/settings.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

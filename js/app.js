@@ -9,7 +9,8 @@
     clocks: { title: 'Timezones', action: '' },
     tasks: { title: 'Tasks', action: 'New task' },
     notes: { title: 'Notes', action: 'New note' },
-    transfer: { title: 'Transfer', action: '' }
+    transfer: { title: 'Transfer', action: '' },
+    settings: { title: 'App settings', action: '' }
   };
 
   var menuButton, menu, scrim, viewTitle, actionButton, toastEl;
@@ -46,7 +47,8 @@
     clocks: function () { ClocksView.render(); },
     tasks: function () { TasksView.render(); },
     notes: function () { NotesView.render(); },
-    transfer: function () { TransfersView.render(); }
+    transfer: function () { TransfersView.render(); },
+    settings: function () { SettingsView.render(); }
   };
 
   function showView(name) {
@@ -481,6 +483,23 @@
     }
   }
 
+  /* ----------------------------------------------------------- appearance -- */
+
+  // The colours and the icon are synced settings, so they can change without
+  // anyone touching this device — a pull from another one, or an imported
+  // backup. Re-apply only on a real change; this runs on every commit.
+  function applyAppearance() {
+    var wanted = Store.getSettings();
+    var live = Theme.current();
+    if (Theme.normalise(wanted.themeBg) !== live.bg ||
+        Theme.normalise(wanted.themeBar) !== live.bar) {
+      Theme.apply(wanted.themeBg, wanted.themeBar);
+    }
+    if ((wanted.appIcon || Theme.DEFAULT_ICON) !== live.icon) {
+      Theme.applyIcon(wanted.appIcon);
+    }
+  }
+
   /* ---------------------------------------------------------------- toast -- */
 
   function toast(message) {
@@ -544,6 +563,7 @@
     TodayView.init();
     ClocksView.init();
     TransfersView.init();
+    SettingsView.init();
     setupSync();
     setupReminders();
 
@@ -592,6 +612,7 @@
     routeFromHash();
 
     Store.subscribe(function () {
+      applyAppearance();
       RENDER[currentView]();
       renderCounts();
     });
