@@ -497,6 +497,10 @@
     }
     if ((wanted.appIcon || Theme.DEFAULT_ICON) !== live.icon) {
       Theme.applyIcon(wanted.appIcon);
+      // No reload here: a choice that arrived from another device should not
+      // yank the page out from under whatever is being typed. The worker knows,
+      // and the next ordinary load picks it up.
+      Theme.publishIcon(wanted.appIcon);
     }
   }
 

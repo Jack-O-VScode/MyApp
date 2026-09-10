@@ -55,9 +55,9 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   pick, by contrast rather than by taste, so no pair of colours can leave you
   with writing you cannot read.
 - **Reset** hands the app back to your device's light/dark setting.
-- **App icon** — five to choose from. Pick before installing: iPhone and Windows
-  both copy the icon at the moment you add the app and keep that copy, so
-  changing an installed one means removing the app and adding it again.
+- **App icon** — five to choose from. The browser tab changes at once; the Home
+  Screen or Start-menu icon needs the app removed and added again, because both
+  platforms copy the icon at install time and keep that copy.
 - Both choices ride along with sync, so the app looks the same on every device.
 
 **Reminders** (optional, extra setup)
@@ -484,7 +484,7 @@ js/settings.js          the App settings screen: colour wheels and icon choice
 supabase/functions/     the scheduled sender that turns those rows into pushes
 js/sync.js              optional Supabase sync: auth, pull/push, merge
 js/app.js               menu, view switching, badge, sync panel, backups
-sw.js                   offline cache for the app shell
+sw.js                   offline cache for the app shell, and the icon rewrite
 manifest.webmanifest    name, icons, colours, Windows jump-list shortcuts
 manifest-*.webmanifest  one per app icon; App settings swaps the <link> to these
 icons/                  generated PNG icons (Windows tiles, iOS home screen),
@@ -496,3 +496,17 @@ tools/serve.js          zero-dependency static server for local use
 
 After changing any cached file, bump `CACHE` in `sw.js` so installed copies pick
 the update up.
+
+### How the app icon actually gets applied
+
+iOS reads `<link rel="apple-touch-icon">` out of the HTML it was served, not out
+of the DOM as JavaScript later leaves it, so swapping the tag in the page never
+changes a Home Screen icon. `sw.js` therefore rewrites those links — and the
+manifest link — in `index.html` as it serves it, using a choice the page hands
+over by `postMessage`. That choice lives in its own cache (`calendar-notes-prefs`)
+so bumping `CACHE` does not lose it, and App settings reloads the page once the
+worker has acknowledged it, so the very next load is already carrying the icon.
+
+An unrecognised name, a non-HTML response or any error along the way hands the
+response back untouched: an app that loads with the wrong icon beats one that
+does not load.

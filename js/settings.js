@@ -179,10 +179,19 @@ window.SettingsView = (function () {
     els.icons.addEventListener('click', function (clickEvent) {
       var button = clickEvent.target.closest('.icon-choice');
       if (!button) return;
-      saveNow({ appIcon: button.dataset.icon });
-      Theme.applyIcon(button.dataset.icon);
+      var chosen = button.dataset.icon;
+
+      saveNow({ appIcon: chosen });
+      Theme.applyIcon(chosen);
       renderIcon();
-      App.toast('Icon set — reinstall the app to see it on your Home Screen.');
+
+      // The tab icon has already changed. The Home Screen icon comes from the
+      // markup, so reload once the worker is holding the choice — the page
+      // that comes back is the one Add to Home Screen will read.
+      Theme.publishIcon(chosen).then(function (published) {
+        if (published) location.reload();
+        else App.toast('Icon set. Reload the app to finish applying it.');
+      });
     });
   }
 
