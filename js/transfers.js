@@ -353,7 +353,9 @@ window.TransfersView = (function () {
     });
     if (oversized.length) {
       setMessage('“' + oversized[0].name + '” is ' + formatSize(oversized[0].size) +
-        '. New buckets cap uploads at 50 MB — raise the limit in Supabase under ' +
+        '. A single stored file cannot go past 50 MB on the free plan — ' +
+        'use “Send to a device” above, which cuts it up and has no limit. ' +
+        'On a paid plan, raise the cap under ' +
         'Storage → Buckets, or send something smaller.', true);
       return;
     }

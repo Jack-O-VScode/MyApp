@@ -1285,4 +1285,94 @@ main {
   background: linear-gradient(135deg, var(--dot-bg) 0 50%, var(--dot-bar) 50% 100%);
 }
 
+/* -------------------------------------------------------------- beaming -- */
+.beam-card { padding: 14px 16px 16px; margin-bottom: 16px; }
+.beam-me { color: var(--text-soft); font-size: .84rem; }
+
+.beam-devices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+.beam-device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.beam-device:hover { border-color: var(--brand); }
+.beam-device.is-on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.beam-device svg { width: 20px; height: 20px; flex: none; }
+.beam-device-name { font-weight: 600; }
+.beam-device-state {
+  color: var(--text-soft);
+  font-size: .76rem;
+}
+.beam-device.is-on .beam-device-state { color: inherit; opacity: .8; }
+
+.beam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.beam-hint { color: var(--text-soft); font-size: .86rem; }
+
+.beam-list:empty { display: none; }
+.beam-job {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.beam-job.is-offer,
+.beam-job[data-phase="offered"] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.beam-job[data-phase="failed"] { border-color: var(--danger); }
+.beam-job-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.beam-job-who { color: var(--text-soft); font-size: .82rem; }
+.beam-job-line { margin: 0; font-size: .86rem; }
+.beam-job[data-phase="failed"] .beam-job-line { color: var(--danger); }
+.beam-job-actions { display: flex; gap: 8px; }
+.button.small { padding: 5px 11px; font-size: .86rem; }
+
+.beam-split {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 16px;
+  color: var(--text-soft);
+  font-size: .82rem;
+}
+.beam-split::before,
+.beam-split::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
+
+
 [hidden] { display: none !important; }

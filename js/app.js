@@ -47,7 +47,7 @@
     clocks: function () { ClocksView.render(); },
     tasks: function () { TasksView.render(); },
     notes: function () { NotesView.render(); },
-    transfer: function () { TransfersView.render(); },
+    transfer: function () { TransfersView.render(); BeamView.render(); },
     settings: function () { SettingsView.render(); }
   };
 
@@ -571,7 +571,10 @@
     NotesView.init();
     TodayView.init();
     ClocksView.init();
+    Devices.init();
+    Beam.init();
     TransfersView.init();
+    BeamView.init();
     SettingsView.init();
     setupSync();
     setupReminders();

@@ -40,13 +40,30 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   above the list filter it.
 - A note left completely blank is discarded instead of cluttering the list.
 
-**Transfer**
-- Send a file from one of your devices to another — drag it in on a PC, or pick
-  it from Files/Photos on an iPhone or iPad.
-- It appears on your other devices within seconds; **Save** puts it in Downloads
-  on Windows or through the share sheet on iOS.
-- A courier, not a filing cabinet: everything is deleted 24 hours after it is
-  sent, collected or not, and **Remove** clears one sooner.
+**Transfer** — two ways, for two different situations
+
+*Send to a device* — any size, both ends present
+- Pick which of your devices to send to; it lists the ones that are awake.
+- Both sides press **Ready**, then it goes. That requirement is what makes the
+  rest of it work.
+- It tries a **direct** WebRTC connection first: nothing but the handshake
+  touches the server, so there is no size limit and no bandwidth cost, and on
+  one Wi-Fi it is far quicker. If no direct route exists it **relays** through
+  the storage bucket instead — one 32 MB chunk at a time, deleted the moment the
+  other end confirms it, so a file of any size fits inside the storage quota.
+- If the direct route dies part way it drops to the relay and **carries on from
+  the last chunk that landed**, rather than starting again.
+- On a desktop browser it streams straight into the file you picked, so nothing
+  is held in memory and size is bounded only by your disk. iPhone and iPad have
+  no such API, so they collect the file first and hand it over at the end — the
+  app warns before accepting something that looks too big for the device.
+
+*Leave it for later* — up to 50 MB, no one has to be present
+- Drop a file and it waits in the bucket; another device collects it whenever.
+- Everything is deleted 24 hours after it is sent, collected or not, and
+  **Remove** clears one sooner.
+- 50 MB is Supabase's per-object ceiling on the free plan and cannot be raised
+  there, which is exactly why *Send to a device* exists.
 
 **App settings**
 - **App theme colour** — colour wheels for the background (the page behind
@@ -311,11 +328,44 @@ Home Screen* on iOS.
 - Roughly 500 MB of database and 1 GB of file storage on the free plan, with a
   monthly bandwidth allowance. Text records use almost none of it; the file
   bucket is the part to keep an eye on, which is why transfers self-delete.
-- Uploads are capped at **50 MB per file** by default. Raise it under
-  **Storage → Buckets → transfers → Settings**, within your plan's limit.
+- A single stored object is capped at **50 MB on the free plan** — that is the
+  plan's ceiling, not a bucket setting, so it cannot be raised there. *Send to a
+  device* works around it by chunking, and a direct transfer skips storage
+  altogether.
+- Egress counts every byte downloaded. A relayed 1 GB file spends 1 GB of the
+  monthly allowance; a direct one spends none of it.
 - Free projects **pause after about a week with no activity**. Opening the
   dashboard resumes them. Daily use never hits this.
 - Check Supabase's current limits before relying on the exact numbers above.
+
+## Send to a device: the extra setup
+
+*Send to a device* needs three small tables on top of the sync setup. Paste
+[`supabase/beam.sql`](supabase/beam.sql) into **SQL Editor → New query** in your
+Supabase dashboard and run it. It is re-runnable, so running it twice is safe.
+
+| Table | What it holds |
+| --- | --- |
+| `devices` | one row per device: its name and when it last said hello |
+| `transfer_sessions` | one row per offered transfer, and how far it has got |
+| `transfer_signals` | WebRTC offers, answers and candidates, in transit only |
+
+Everything is scoped to `auth.uid()` by row-level security, so a device only
+ever sees your own rows. Nothing here is worth keeping: `sweep_transfers()` is
+included if you want to schedule a tidy-up alongside the reminder job, but stale
+rows are harmless either way.
+
+Two things worth knowing:
+
+- **Both devices must be awake.** A device says hello every 15 seconds while the
+  app is open, and counts as awake for 50 seconds after. Close the app and it
+  drops off the list.
+- **A direct connection is not always possible.** It uses public STUN servers to
+  find a route, which works on the same network and across most home
+  connections. Where it cannot, it falls back to relaying through storage
+  automatically — you only notice because it says "Relayed" and counts against
+  the bandwidth allowance. Getting a direct route in the hard cases would mean
+  running a TURN relay, which is not included.
 
 ## Sync: how it behaves
 
@@ -485,10 +535,14 @@ js/notes.js             note list, tags, note editor
 js/today.js             the Today screen and cross-app search
 js/zones.js             the city list behind the Timezones screen
 js/clocks.js            the Timezones screen: search, pinning, live clocks
-js/transfers.js         device-to-device file transfer via Supabase Storage
+js/devices.js           which devices this account has, and which are awake
+js/beam.js              any-size transfer: WebRTC first, chunked relay as backup
+js/beam-ui.js           the "Send to a device" half of the Transfer screen
+js/transfers.js         the drop-it-and-collect-later half
 js/reminders.js         works out when reminders fire and keeps the table current
 js/settings.js          the App settings screen
 supabase/functions/     the scheduled sender that turns those rows into pushes
+supabase/beam.sql       tables for the device list, sessions and signalling
 js/sync.js              optional Supabase sync: auth, pull/push, merge
 js/app.js               menu, view switching, badge, sync panel, backups
 sw.js                   offline cache for the app shell

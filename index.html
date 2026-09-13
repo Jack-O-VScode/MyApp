@@ -250,10 +250,38 @@
     </div>
 
     <div id="transfer-panel">
+      <!-- Device to device, any size. Both ends have to be awake and both have
+           to say Ready, which is what lets the two agree a route. -->
+      <section class="card beam-card">
+        <div class="card-head">
+          <h2>Send to a device</h2>
+          <span id="beam-me" class="beam-me"></span>
+        </div>
+
+        <div id="beam-incoming" class="beam-list"></div>
+        <div id="beam-jobs" class="beam-list"></div>
+
+        <div id="beam-compose">
+          <div id="beam-devices" class="beam-devices" role="radiogroup"
+               aria-label="Send to which device"></div>
+          <p id="beam-none" class="help-note" hidden>No other device is awake right
+            now. Open the app on the one you want to send to and it will appear
+            here.</p>
+          <div class="beam-actions">
+            <button id="beam-pick" class="button primary" type="button" disabled>Choose a file</button>
+            <input id="beam-file" type="file" hidden>
+            <span id="beam-hint" class="beam-hint"></span>
+          </div>
+        </div>
+      </section>
+
+      <div class="beam-split"><span>or leave it for later</span></div>
+
       <div id="transfer-drop" class="dropzone">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-        <p><strong>Send a file to your other devices</strong></p>
-        <p class="dropzone-hint">Drag it here, or</p>
+        <p><strong>Leave a file for the others to collect</strong></p>
+        <p class="dropzone-hint">Up to 50 MB, and it waits a day whether anyone
+          fetches it or not. Drag it here, or</p>
         <button id="transfer-pick" class="button primary" type="button">Choose files</button>
         <input id="transfer-file" type="file" multiple hidden>
       </div>
@@ -758,6 +786,9 @@ create index if not exists reminders_pending
 <script src="js/notes.js"></script>
 <script src="js/today.js"></script>
 <script src="js/clocks.js"></script>
+<script src="js/devices.js"></script>
+<script src="js/beam.js"></script>
+<script src="js/beam-ui.js"></script>
 <script src="js/transfers.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/reminders.js"></script>
