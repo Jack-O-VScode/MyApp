@@ -26,6 +26,11 @@ window.SettingsView = (function () {
     { id: 'gradient', label: 'Gradient' }
   ];
 
+  var BUTTON_STYLES = [
+    { id: 'glass', label: 'Glass' },
+    { id: 'solid', label: 'Solid' }
+  ];
+
   // What the screen should be showing. While a write is still queued that is
   // the value in hand, not the one in storage — reading storage mid-drag would
   // snap the wheel back to where it started.
@@ -62,7 +67,8 @@ window.SettingsView = (function () {
       bg2: values.themeBgMode === 'gradient' ? values.themeBg2 : '',
       bar: values.themeBar,
       accent: values.themeAccent,
-      textSize: values.textSize
+      textSize: values.textSize,
+      glass: values.buttonStyle !== 'solid'
     };
   }
 
@@ -176,6 +182,7 @@ window.SettingsView = (function () {
 
   function renderTextAndTimes() {
     var values = settings();
+    markSegmented(els.buttonStyle, 'style', values.buttonStyle === 'solid' ? 'solid' : 'glass');
     markSegmented(els.textSize, 'size', values.textSize || Theme.DEFAULT_TEXT_SIZE);
     markSegmented(els.clock, 'clock', values.clock || '');
   }
@@ -197,11 +204,13 @@ window.SettingsView = (function () {
     els.reset = document.getElementById('theme-reset');
     els.followNote = document.getElementById('theme-follow-note');
     els.presets = document.getElementById('theme-presets');
+    els.buttonStyle = document.getElementById('button-style');
     els.textSize = document.getElementById('text-size');
     els.clock = document.getElementById('clock-format');
 
     buildPresets();
     buildSegmented(els.bgMode, BG_MODES, 'mode');
+    buildSegmented(els.buttonStyle, BUTTON_STYLES, 'style');
     buildSegmented(els.textSize, Theme.TEXT_SIZES, 'size');
     buildSegmented(els.clock, CLOCKS, 'clock');
 
@@ -249,6 +258,15 @@ window.SettingsView = (function () {
         themeBgMode: button.dataset.bg2 ? 'gradient' : 'solid',
         themeBar: button.dataset.bar
       }, true);
+    });
+
+    els.buttonStyle.addEventListener('click', function (clickEvent) {
+      var button = clickEvent.target.closest('button');
+      if (!button) return;
+      var values = Object.assign({}, settings(), { buttonStyle: button.dataset.style });
+      Theme.apply(appearance(values));
+      saveNow({ buttonStyle: button.dataset.style });
+      renderTextAndTimes();
     });
 
     els.textSize.addEventListener('click', function (clickEvent) {

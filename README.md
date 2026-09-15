@@ -78,6 +78,13 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   until both work; ends that already do are left alone. Nine presets are offered
   as starting points, and **Reset** hands the app back to your device's
   light/dark setting.
+- **Buttons** — **Glass** frosts the buttons, chips, bar and menu and blurs
+  whatever is behind them, which is worth having over a gradient background;
+  **Solid** is the flat look. The translucency is part of the contrast maths,
+  not a coat of paint on top: a see-through button is judged on the colour it
+  actually ends up looking, over a card and over the page alike, so what is
+  written on it stays legible either way. Where a browser cannot blur, or the
+  system asks for reduced transparency, the solid style stands in.
 - **Text size** — Small, Normal or Large, scaling the whole app.
 - **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,
   tasks, notes and the Timezones screen all read from the one setting.

@@ -147,20 +147,39 @@ window.Theme = (function () {
     return normalise(accent) || (dark ? '#7b90ff' : '#4f6bf6');
   }
 
+  // How much of a glass fill is the fill, and how much is whatever is behind it.
+  var GLASS_ALPHA = 0.8;
+
   // A fill has two jobs at once: stand out from the card it sits on, and carry
   // a label. No single rule satisfies both — a mid-blue accent on a mid-blue
   // card can do neither — so walk the colour towards black and towards white
   // and take the first point along either that manages both. Most colours
   // satisfy it where they already are and never move at all.
-  function fill(surface, wanted) {
+  //
+  // A glass button is judged on what it will actually look like rather than on
+  // its own colour: translucent, it becomes part of whatever it is sitting over.
+  // `backdrops` are the surfaces it can end up on, and every one of them has to
+  // work — so the guarantee holds wherever the button is put.
+  function fill(surface, wanted, backdrops) {
     var best = null;
+
+    var shown = function (colour) {
+      if (!backdrops || !backdrops.length) return [colour];
+      return backdrops.map(function (behind) {
+        return mix(colour, behind, 1 - GLASS_ALPHA);
+      });
+    };
 
     [BLACK, WHITE].forEach(function (towards) {
       for (var step = 0; step <= 24; step++) {
         var colour = mix(wanted, towards, step / 24);
-        if (contrast(colour, surface) < 3.2) continue;
-        var ink = contrast(WHITE, colour) >= contrast(INK, colour) ? WHITE : INK;
-        if (contrast(ink, colour) < 4.6) continue;
+        var faces = shown(colour);
+
+        if (faces.some(function (face) { return contrast(face, surface) < 3.2; })) continue;
+        var ink = faces.every(function (face) {
+          return contrast(WHITE, face) >= contrast(INK, face);
+        }) ? WHITE : INK;
+        if (faces.some(function (face) { return contrast(ink, face) < 4.6; })) continue;
 
         var moved = Math.abs(luminance(colour) - luminance(wanted));
         if (!best || moved < best.moved) best = { colour: colour, ink: ink, moved: moved };
@@ -182,7 +201,7 @@ window.Theme = (function () {
   // end is then held to it separately. Ends far apart get pulled towards each
   // other — a white-to-black page comes out white-to-grey — which keeps the
   // gradient going the way it was asked for and keeps it readable.
-  function pageTokens(chosen, accent, bottom) {
+  function pageTokens(chosen, accent, bottom, glass) {
     var second = normalise(bottom);
     var middle = second ? mix(chosen, second, 0.5) : chosen;
     var pole = poleFor(middle);
@@ -195,7 +214,10 @@ window.Theme = (function () {
     var text = readable(surface, mix(pole, middle, 0.1), 7.5);
     var bg = deepen(chosen, text, 4.6);
     var bg2 = second ? deepen(second, text, 4.6) : '';
-    var filled = fill(surface, wantedAccent(accent, dark));
+    // A button can sit on a card or straight on the page; glass has to survive
+    // both, since it takes on whatever is behind it.
+    var filled = fill(surface, wantedAccent(accent, dark),
+      glass ? [surface, bg, bg2 || bg] : null);
     var brand = filled.colour;
 
     return {
@@ -241,11 +263,12 @@ window.Theme = (function () {
 
   // An accent on its own still needs the page tokens rewritten, since --brand
   // and everything derived from it live there.
-  function accentOnlyTokens(accent) {
+  function accentOnlyTokens(accent, glass) {
     var dark = window.matchMedia &&
       window.matchMedia('(prefers-color-scheme: dark)').matches;
     var surface = dark ? '#1b1e2c' : '#ffffff';
-    var filled = fill(surface, wantedAccent(accent, dark));
+    var filled = fill(surface, wantedAccent(accent, dark),
+      glass ? [surface, dark ? '#12141f' : '#f4f5fb'] : null);
     return {
       '--brand': filled.colour,
       '--brand-soft': mix(filled.colour, surface, dark ? 0.8 : 0.86),
@@ -258,7 +281,7 @@ window.Theme = (function () {
 
   /* ---------------------------------------------------------------- apply -- */
 
-  var current = { bg: '', bg2: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE };
+  var current = { bg: '', bg2: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE, glass: true };
 
   function write(root, tokens, keys) {
     keys.forEach(function (key) {
@@ -301,15 +324,22 @@ window.Theme = (function () {
     current.accent = normalise(wanted.accent);
     var size = sizeFor(wanted.textSize);
     current.textSize = size.id;
+    current.glass = wanted.glass !== false;
+
+    // Buttons and bars go translucent from CSS; the contrast maths above needs
+    // to know, because a see-through button is partly whatever is behind it.
+    if (current.glass) root.setAttribute('data-glass', 'on');
+    else root.removeAttribute('data-glass');
 
     // Nothing chosen: drop every override so the stylesheet's own light and
     // dark schemes take back over, live.
-    write(root, current.bg ? pageTokens(current.bg, current.accent, current.bg2) : null, PAGE_KEYS);
+    write(root, current.bg
+      ? pageTokens(current.bg, current.accent, current.bg2, current.glass) : null, PAGE_KEYS);
     write(root, current.bar ? barTokens(current.bar, current.accent) : null, BAR_KEYS);
 
     // An accent with no page colour still has to land somewhere.
     if (!current.bg && current.accent) {
-      var extra = accentOnlyTokens(current.accent);
+      var extra = accentOnlyTokens(current.accent, current.glass);
       Object.keys(extra).forEach(function (key) {
         root.style.setProperty(key, extra[key]);
       });
@@ -347,7 +377,8 @@ window.Theme = (function () {
     bg2: start.themeBgMode === 'gradient' ? start.themeBg2 : '',
     bar: start.themeBar,
     accent: start.themeAccent,
-    textSize: start.textSize
+    textSize: start.textSize,
+    glass: start.buttonStyle !== 'solid'
   });
 
   // A derived palette is a snapshot of the system scheme, so re-derive it when
@@ -378,16 +409,17 @@ window.Theme = (function () {
         accent: normalise(style.getPropertyValue('--brand')) || '#4f6bf6'
       };
     },
-    tokens: function (bg, bar, accent, bg2) {
+    GLASS_ALPHA: GLASS_ALPHA,
+    tokens: function (bg, bar, accent, bg2, glass) {
       return {
-        page: normalise(bg) ? pageTokens(normalise(bg), accent, bg2) : null,
+        page: normalise(bg) ? pageTokens(normalise(bg), accent, bg2, glass) : null,
         bar: normalise(bar) ? barTokens(normalise(bar), accent) : null
       };
     },
     current: function () {
       return {
         bg: current.bg, bg2: current.bg2, bar: current.bar,
-        accent: current.accent, textSize: current.textSize
+        accent: current.accent, textSize: current.textSize, glass: current.glass
       };
     }
   };

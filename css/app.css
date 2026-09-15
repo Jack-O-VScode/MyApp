@@ -1375,4 +1375,132 @@ main {
 }
 
 
+/* ---------------------------------------------------------------- glass -- */
+/* Frosted buttons and bars: translucent, with the background blurred behind
+   them, a bright top edge for the lit rim and a soft one underneath.
+
+   Only where the browser can actually blur — without backdrop-filter a
+   see-through button over busy content is just hard to read, so everything here
+   sits inside @supports and the solid style stands unless the blur is real.
+
+   Deliberately not applied to the small repeated things (day chips, task rows).
+   A blur layer per element is the expensive kind, and dozens of them on one
+   screen is what makes a page stutter on a phone. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-glass="on"] {
+    --glass-blur: blur(14px) saturate(180%);
+    --glass-rim: inset 0 1px 0 color-mix(in srgb, #fff 42%, transparent);
+    --glass-lift: 0 4px 16px color-mix(in srgb, #000 14%, transparent);
+  }
+
+  [data-glass="on"] .button,
+  [data-glass="on"] .chip,
+  [data-glass="on"] .icon-button,
+  [data-glass="on"] .text-button,
+  [data-glass="on"] .segmented,
+  [data-glass="on"] .preset,
+  [data-glass="on"] .beam-device {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  [data-glass="on"] .button,
+  [data-glass="on"] .chip,
+  [data-glass="on"] .preset,
+  [data-glass="on"] .beam-device {
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    border-color: color-mix(in srgb, var(--text) 14%, transparent);
+    box-shadow: var(--glass-rim), var(--glass-lift);
+  }
+  [data-glass="on"] .button:hover,
+  [data-glass="on"] .chip:hover,
+  [data-glass="on"] .preset:hover,
+  [data-glass="on"] .beam-device:hover {
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+
+  /* The filled ones keep their colour, just see-through. 80% is not a look —
+     it is the figure the contrast maths in js/theme.js assumes when it works
+     out what can be written on them. */
+  [data-glass="on"] .button.primary,
+  [data-glass="on"] .chip.is-on {
+    background: color-mix(in srgb, var(--brand) 80%, transparent);
+    border-color: color-mix(in srgb, #fff 26%, transparent);
+    box-shadow: var(--glass-rim), var(--glass-lift);
+  }
+  [data-glass="on"] .button.primary:hover,
+  [data-glass="on"] .chip.is-on:hover {
+    background: color-mix(in srgb, var(--brand) 92%, transparent);
+    filter: none;
+  }
+  [data-glass="on"] .preset.is-on,
+  [data-glass="on"] .beam-device.is-on,
+  [data-glass="on"] .icon-choice.is-on {
+    background: color-mix(in srgb, var(--brand-soft) 78%, transparent);
+  }
+
+  [data-glass="on"] .button.danger {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  }
+
+  [data-glass="on"] .segmented {
+    background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    border-color: color-mix(in srgb, var(--text) 12%, transparent);
+  }
+  [data-glass="on"] .segmented button.is-on {
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    box-shadow: var(--glass-rim), 0 2px 8px color-mix(in srgb, #000 12%, transparent);
+  }
+
+  /* The bar and the menu are the big panes, and the gradient behind them is
+     what makes the blur worth having. */
+  [data-glass="on"] .appbar {
+    background: color-mix(in srgb, var(--bar) 72%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    border-bottom-color: color-mix(in srgb, var(--bar-text) 16%, transparent);
+  }
+  /* A menu is for reading, not for looking through: enough of the background
+     comes past to catch the light, not enough to compete with the labels. */
+  [data-glass="on"] .menu {
+    background: color-mix(in srgb, var(--bar) 93%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    box-shadow: var(--glass-rim), 0 10px 30px color-mix(in srgb, #000 26%, transparent);
+  }
+  [data-glass="on"] .appbar .icon-button,
+  [data-glass="on"] .appbar .text-button {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* A dialog's own panel, so it reads as one pane of glass over the page. */
+  [data-glass="on"] .modal-panel,
+  [data-glass="on"] .toast {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+  [data-glass="on"] .modal-panel {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    box-shadow: var(--glass-rim), 0 20px 50px color-mix(in srgb, #000 30%, transparent);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    [data-glass="on"] .button,
+    [data-glass="on"] .chip,
+    [data-glass="on"] .preset,
+    [data-glass="on"] .beam-device,
+    [data-glass="on"] .appbar,
+    [data-glass="on"] .menu,
+    [data-glass="on"] .modal-panel,
+    [data-glass="on"] .segmented { background: var(--surface); }
+    [data-glass="on"] .button.primary,
+    [data-glass="on"] .chip.is-on { background: var(--brand); }
+    [data-glass="on"] .appbar,
+    [data-glass="on"] .menu { background: var(--bar); }
+  }
+}
+
+
 [hidden] { display: none !important; }

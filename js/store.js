@@ -628,6 +628,7 @@ window.Store = (function () {
     themeBar: '',           // App settings: appbar and menu colour
     themeAccent: '',        // App settings: buttons and highlights
     textSize: 'normal',     // App settings: small | normal | large
+    buttonStyle: 'glass',   // App settings: glass | solid
     clock: ''               // App settings: '' follows the device, else 12 or 24
   };
 

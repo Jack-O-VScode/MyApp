@@ -497,7 +497,8 @@
         wantedBg2 === live.bg2 &&
         Theme.normalise(wanted.themeBar) === live.bar &&
         Theme.normalise(wanted.themeAccent) === live.accent &&
-        (wanted.textSize || Theme.DEFAULT_TEXT_SIZE) === live.textSize) {
+        (wanted.textSize || Theme.DEFAULT_TEXT_SIZE) === live.textSize &&
+        (wanted.buttonStyle !== 'solid') === live.glass) {
       return;
     }
     Theme.apply({
@@ -505,7 +506,8 @@
       bg2: wantedBg2,
       bar: wanted.themeBar,
       accent: wanted.themeAccent,
-      textSize: wanted.textSize
+      textSize: wanted.textSize,
+      glass: wanted.buttonStyle !== 'solid'
     });
   }
 
