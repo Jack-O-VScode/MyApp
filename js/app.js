@@ -483,6 +483,113 @@
     }
   }
 
+  /* ------------------------------------------------------- calendar import -- */
+
+  var icsEls = {};
+  var icsPending = null;
+
+  function icsSummary(result, report) {
+    var parts = [];
+    if (result.added) parts.push(result.added + (result.added === 1 ? ' event added' : ' events added'));
+    if (result.updated) parts.push(result.updated + ' updated');
+    if (!parts.length) parts.push('Nothing to import');
+
+    var notes = [];
+    if (report.flattened) {
+      notes.push(report.flattened + (report.flattened === 1 ? ' repeat rule' : ' repeat rules') +
+        ' this app cannot store, kept as single days');
+    }
+    if (report.spanning) {
+      notes.push(report.spanning + ' ran across several days, filed on the day they start');
+    }
+    if (report.cancelled) notes.push(report.cancelled + ' cancelled, skipped');
+    if (report.skipped) notes.push(report.skipped + ' unreadable, skipped');
+
+    return parts.join(', ') + '.' + (notes.length ? ' ' + notes.join('. ') + '.' : '');
+  }
+
+  function readIcs(text) {
+    var parsed;
+    try {
+      parsed = ICS.parse(text);
+    } catch (err) {
+      icsPending = null;
+      showIcsResult('That file could not be read.', true);
+      return;
+    }
+    if (!parsed.events.length) {
+      icsPending = null;
+      showIcsResult(parsed.report.total
+        ? 'Found ' + parsed.report.total + ' entries but none could be read as events.'
+        : 'No events in that — is it a .ics calendar file?', true);
+      return;
+    }
+    icsPending = parsed;
+    showIcsResult('Ready: ' + parsed.events.length +
+      (parsed.events.length === 1 ? ' event' : ' events') + ' found.', false);
+  }
+
+  function showIcsResult(message, isError) {
+    icsEls.result.textContent = message;
+    icsEls.result.hidden = !message;
+    icsEls.result.classList.toggle('is-error', !!isError);
+    icsEls.confirm.disabled = !icsPending;
+  }
+
+  function openIcsImport() {
+    icsPending = null;
+    icsEls.text.value = '';
+    showIcsResult('', false);
+    icsEls.modal.hidden = false;
+    icsEls.choose.focus();
+  }
+
+  function setupIcsImport() {
+    icsEls = {
+      modal: document.getElementById('ics-modal'),
+      choose: document.getElementById('ics-choose'),
+      file: document.getElementById('ics-file'),
+      text: document.getElementById('ics-text'),
+      result: document.getElementById('ics-result'),
+      confirm: document.getElementById('ics-import')
+    };
+
+    icsEls.choose.addEventListener('click', function () { icsEls.file.click(); });
+    icsEls.file.addEventListener('change', function () {
+      var file = this.files && this.files[0];
+      this.value = '';
+      if (!file) return;
+      file.text().then(function (text) {
+        icsEls.text.value = text.length > 200000 ? '' : text;
+        readIcs(text);
+      }, function () {
+        showIcsResult('That file could not be opened.', true);
+      });
+    });
+
+    icsEls.text.addEventListener('input', function () {
+      if (this.value.trim()) readIcs(this.value);
+      else { icsPending = null; showIcsResult('', false); }
+    });
+
+    icsEls.confirm.addEventListener('click', function () {
+      if (!icsPending) return;
+      var result = Store.importEvents(icsPending.events);
+      var message = icsSummary(result, icsPending.report);
+      icsPending = null;
+      icsEls.text.value = '';
+      showIcsResult(message, false);
+      toast(message);
+    });
+
+    Array.prototype.forEach.call(icsEls.modal.querySelectorAll('[data-ics-close]'), function (button) {
+      button.addEventListener('click', function () { icsEls.modal.hidden = true; });
+    });
+    icsEls.modal.addEventListener('mousedown', function (clickEvent) {
+      if (clickEvent.target === icsEls.modal) icsEls.modal.hidden = true;
+    });
+  }
+
   /* ----------------------------------------------------------- appearance -- */
 
   // Appearance is a synced setting, so it can change without anyone touching
@@ -545,6 +652,9 @@
       case 'import':
         document.getElementById('import-file').click();
         break;
+      case 'import-ics':
+        openIcsImport();
+        break;
       case 'install':
         if (!installPrompt) return;
         installPrompt.prompt();
@@ -580,6 +690,7 @@
     SettingsView.init();
     setupSync();
     setupReminders();
+    setupIcsImport();
 
     menuButton.addEventListener('click', function () {
       if (menuIsOpen()) closeMenu(true);
@@ -617,6 +728,7 @@
       else if (!help.hidden) help.hidden = true;
       else if (!syncEls.modal.hidden) syncEls.modal.hidden = true;
       else if (!remEls.modal.hidden) remEls.modal.hidden = true;
+      else if (!icsEls.modal.hidden) icsEls.modal.hidden = true;
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
       else if (TasksView.isModalOpen()) TasksView.closeModal();
       else if (NotesView.isEditorOpen()) NotesView.closeEditor();

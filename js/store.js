@@ -921,6 +921,59 @@ window.Store = (function () {
 
   // Merges a backup into what is already here; an entry with a known id wins
   // only if it is newer, so importing the same file twice is harmless.
+  // Events read out of a .ics file. Each one's id is derived from the file's own
+  // UID, so importing the same calendar again updates what is already here
+  // instead of laying down a second copy of everything.
+  function importEvents(list) {
+    var added = 0;
+    var updated = 0;
+    var stamp = now();
+
+    (list || []).forEach(function (item) {
+      if (!item || !item.title || !isKey(item.date)) return;
+      var id = item.uid ? 'ics-' + hashOf(item.uid) : uid();
+      var existing = find('event', id);
+      var fields = {
+        title: String(item.title).slice(0, 200),
+        date: item.date,
+        time: /^\d{2}:\d{2}$/.test(item.time || '') ? item.time : '',
+        details: String(item.details || '').slice(0, 5000),
+        color: '',
+        remind: -1,
+        repeat: REPEATS.indexOf(item.repeat) === -1 ? '' : item.repeat,
+        repeatUntil: isKey(item.repeatUntil) ? item.repeatUntil : ''
+      };
+
+      if (existing) {
+        Object.assign(existing, fields);
+        existing.deleted = false;
+        touch(existing);
+        updated++;
+        return;
+      }
+      state.events.push(normalise(Object.assign({
+        id: id, createdAt: stamp, updatedAt: stamp, dirty: true, skips: []
+      }, fields), 'event'));
+      added++;
+    });
+
+    commit();
+    return { added: added, updated: updated };
+  }
+
+  // A short, stable id from an arbitrary string. Not a security hash — it only
+  // has to be the same every time for the same UID.
+  function hashOf(text) {
+    var a = 0x811c9dc5;
+    var b = 0x01000193;
+    for (var i = 0; i < text.length; i++) {
+      a ^= text.charCodeAt(i);
+      a = (a * b) >>> 0;
+      a = (a + (a << 13)) >>> 0;
+    }
+    return a.toString(36) + '-' + text.length.toString(36);
+  }
+
   function importData(payload) {
     var kinds = Object.keys(LISTS).filter(function (kind) {
       return Array.isArray(payload && payload[LISTS[kind]]);
@@ -1001,6 +1054,7 @@ window.Store = (function () {
     search: search,
     exportData: exportData,
     importData: importData,
+    importEvents: importEvents,
     pendingRecords: pendingRecords,
     markSynced: markSynced,
     markAllDirty: markAllDirty,

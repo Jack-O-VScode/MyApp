@@ -24,6 +24,16 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   date. Editing or deleting one asks whether you mean *this day* or *the whole
   series*, so moving a single standup doesn't disturb the rest.
 - Tasks due on a day appear on the grid in orange, and under the day's schedule.
+- **Import a calendar** (in the menu) reads a `.ics` file — what Google
+  Calendar, Outlook and Apple Calendar export, and what an airline or hotel
+  emails you. Pick the file or paste its contents. It copies the events **once**;
+  it does not stay connected, so anything added to the other calendar afterwards
+  will not turn up here. Importing the same file again updates what is already
+  here rather than making a second copy, because events are matched on the
+  file's own IDs.
+- The `.ics` repeat format says far more than this app stores — "the third
+  Thursday of every month" has nowhere to live here — so anything that does not
+  fit is kept as the single day it starts on, and the app tells you how many.
 
 **Tasks**
 - Type in the quick-add box and press Enter, or use **New task** for a due date
@@ -539,6 +549,7 @@ js/config.js            which project this copy connects to, and the push key
 js/theme.js             derives the palette from the two chosen colours; runs
                         from <head> so a custom app never flashes the default
 js/store.js             data layer: events, tasks, notes, recurrence, search
+js/ics.js               reads .ics calendar files: folding, escapes, zones, rules
 js/format.js            clock times, in whichever format App settings asks for
 js/calendar.js          month grid, day panel, event editor
 js/tasks.js             task list, task editor, shared task-row renderer

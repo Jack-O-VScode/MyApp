@@ -87,6 +87,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
       <span>Import backup</span>
     </button>
+    <button class="menu-item" role="menuitem" data-action="import-ics">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v3M17 2v3M3.5 9h17M4 5.5h16a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z"/><path d="M12 12v5m0 0 2-2m-2 2-2-2"/></svg>
+      <span>Import a calendar</span>
+    </button>
     <button class="menu-item" role="menuitem" data-action="install" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
       <span>Install app</span>
@@ -391,6 +395,38 @@
     </section>
   </section>
 </main>
+
+<!-- --------------------------- Calendar import ----------------------------- -->
+<div id="ics-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="ics-title" hidden>
+  <div class="modal-panel">
+    <h2 id="ics-title">Import a calendar</h2>
+
+    <p class="help-note">Export a <strong>.ics</strong> file from Google Calendar,
+      Outlook or Apple Calendar — or open the one an airline or hotel emailed you —
+      and its events land here. This copies them once; it does not stay connected
+      to the other calendar, so anything you add there later will not appear here.</p>
+
+    <div class="ics-pick">
+      <button id="ics-choose" class="button primary" type="button">Choose a .ics file</button>
+      <input id="ics-file" type="file" accept=".ics,text/calendar" hidden>
+      <span class="help-note ics-or">or paste it below</span>
+    </div>
+
+    <label class="field">
+      <span>Paste the file&rsquo;s contents</span>
+      <textarea id="ics-text" rows="5" spellcheck="false"
+                placeholder="BEGIN:VCALENDAR&#10;BEGIN:VEVENT&#10;..."></textarea>
+    </label>
+
+    <p id="ics-result" class="ics-result" role="status" hidden></p>
+
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button class="button" type="button" data-ics-close>Close</button>
+      <button id="ics-import" class="button primary" type="button" disabled>Import</button>
+    </div>
+  </div>
+</div>
 
 <!-- ----------------------------- Event editor ------------------------------ -->
 <div id="event-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title" hidden>
@@ -787,6 +823,7 @@ create index if not exists reminders_pending
 
 <script src="js/config.js"></script>
 <script src="js/store.js"></script>
+<script src="js/ics.js"></script>
 <script src="js/format.js"></script>
 <script src="js/zones.js"></script>
 <script src="js/calendar.js"></script>

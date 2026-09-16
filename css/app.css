@@ -1554,4 +1554,34 @@ main {
 }
 
 
+/* ------------------------------------------------------- calendar import -- */
+.ics-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 4px;
+}
+.ics-or { margin: 0; padding: 0; background: transparent; }
+.ics-result {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: .88rem;
+}
+.ics-result.is-error {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+#ics-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+
 [hidden] { display: none !important; }
