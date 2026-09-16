@@ -237,6 +237,7 @@ window.Theme = (function () {
       '--on-brand': filled.ink,
       '--accent': readable(surface, dark ? '#ff9d5c' : '#ff8a3d', 3.2),
       '--danger': readable(surface, dark ? '#ff6b6b' : '#d93a3a', 4.6),
+      '--ok': readable(surface, dark ? '#4fd18b' : '#178a52', 4.6),
       '--shadow': dark
         ? '0 6px 24px rgba(0, 0, 0, .45)'
         : '0 6px 24px rgba(24, 30, 60, .10)'
@@ -250,6 +251,8 @@ window.Theme = (function () {
     var dark = pole === WHITE;
     var bar = deepen(chosen, pole, 5.6);
     var text = readable(bar, pole, 5.2);
+    var okChip = fill(bar, dark ? '#4fd18b' : '#15804d');
+    var dangerChip = fill(bar, dark ? '#ff6b6b' : '#c4302b');
 
     return {
       '--bar': bar,
@@ -257,7 +260,14 @@ window.Theme = (function () {
       '--bar-soft': dark ? mix(bar, WHITE, 0.12) : mix(bar, BLACK, 0.06),
       '--bar-line': dark ? mix(bar, WHITE, 0.18) : mix(bar, BLACK, 0.12),
       '--bar-accent': readable(bar, wantedAccent(accent, dark), 3.5),
-      '--bar-danger': readable(bar, dark ? '#ff6b6b' : '#d93a3a', 3.5)
+      // The status chips are filled, not tinted: a tint has to stay both
+      // saturated and legible, and against something like a mauve bar it cannot
+      // do both — the red washes out to pink and stops reading as red. Filled,
+      // fill() keeps the colour and moves the writing instead.
+      '--bar-ok': okChip.colour,
+      '--bar-ok-ink': okChip.ink,
+      '--bar-danger': dangerChip.colour,
+      '--bar-danger-ink': dangerChip.ink
     };
   }
 

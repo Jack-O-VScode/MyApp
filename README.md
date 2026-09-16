@@ -97,6 +97,10 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 
 **Everywhere**
 - Optional **sync**: type on the PC, see it on the phone (setup below).
+- **Sync** and **Reminders** carry a status chip in the menu: green when on and
+  working, red when off or broken, and the word says which. The colours are
+  derived against whatever bar colour is in use, so they stay both legible and
+  clearly green-or-red on any of them.
 - Works with no connection at all once it has loaded once.
 - Light and dark themes follow the system setting until you pick your own in
   **App settings**.

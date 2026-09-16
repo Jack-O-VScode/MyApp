@@ -358,7 +358,7 @@
     var on = settings.remindersOn && Reminders.permission() === 'granted';
 
     remEls.chip.textContent = on ? 'On' : 'Off';
-    remEls.chip.dataset.state = on ? 'ok' : '';
+    remEls.chip.dataset.state = on ? 'ok' : 'off';
     remEls.state.textContent = reminderStateText();
     remEls.digestTime.value = settings.digestTime;
     remEls.digestOn.checked = !!settings.digestOn;
