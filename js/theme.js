@@ -26,23 +26,193 @@ window.Theme = (function () {
 
   // Families, not fonts: nothing is downloaded, so there is no waiting, no
   // flash of the wrong face, and it still works with no connection at all.
-  // Each stack names what the platforms actually ship.
+  //
+  // The first four are stacks -- they name one face per platform and so are
+  // always available. Everything after is a single family that a device either
+  // has or has not, which is what `hasFamily` below is for: an option that
+  // would silently fall back to something else is worse than no option. Several
+  // carry more than one name because the same face is called different things
+  // on different systems (Gill Sans / Gill Sans MT).
   var FONTS = [
-    { id: 'system', label: 'System',
+    { id: 'system', label: 'System', group: 'Sans',
       stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' },
-    { id: 'rounded', label: 'Rounded',
+    { id: 'rounded', label: 'Rounded', group: 'Sans',
       stack: 'ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif' },
-    { id: 'serif', label: 'Serif',
+    { id: 'serif', label: 'Serif', group: 'Serif',
       stack: 'ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif' },
-    { id: 'mono', label: 'Mono',
-      stack: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace' }
+    { id: 'mono', label: 'Mono', group: 'Mono',
+      stack: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace' },
+
+    { id: 'helvetica', label: 'Helvetica', group: 'Sans', names: ['Helvetica Neue', 'Helvetica'] },
+    { id: 'arial', label: 'Arial', group: 'Sans', names: ['Arial'] },
+    { id: 'avenir', label: 'Avenir', group: 'Sans', names: ['Avenir Next', 'Avenir'] },
+    { id: 'futura', label: 'Futura', group: 'Sans', names: ['Futura'] },
+    { id: 'gill-sans', label: 'Gill Sans', group: 'Sans', names: ['Gill Sans', 'Gill Sans MT'] },
+    { id: 'optima', label: 'Optima', group: 'Sans', names: ['Optima'] },
+    { id: 'segoe', label: 'Segoe UI', group: 'Sans', names: ['Segoe UI'] },
+    { id: 'calibri', label: 'Calibri', group: 'Sans', names: ['Calibri'] },
+    { id: 'candara', label: 'Candara', group: 'Sans', names: ['Candara'] },
+    { id: 'corbel', label: 'Corbel', group: 'Sans', names: ['Corbel'] },
+    { id: 'tahoma', label: 'Tahoma', group: 'Sans', names: ['Tahoma'] },
+    { id: 'trebuchet', label: 'Trebuchet MS', group: 'Sans', names: ['Trebuchet MS'] },
+    { id: 'verdana', label: 'Verdana', group: 'Sans', names: ['Verdana'] },
+    { id: 'century-gothic', label: 'Century Gothic', group: 'Sans', names: ['Century Gothic'] },
+    { id: 'franklin', label: 'Franklin Gothic', group: 'Sans', names: ['Franklin Gothic Medium', 'Franklin Gothic'] },
+    { id: 'lucida-sans', label: 'Lucida Sans', group: 'Sans', names: ['Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans'] },
+    { id: 'geneva', label: 'Geneva', group: 'Sans', names: ['Geneva'] },
+    { id: 'roboto', label: 'Roboto', group: 'Sans', names: ['Roboto'] },
+    { id: 'noto-sans', label: 'Noto Sans', group: 'Sans', names: ['Noto Sans'] },
+
+    { id: 'georgia', label: 'Georgia', group: 'Serif', names: ['Georgia'] },
+    { id: 'times', label: 'Times New Roman', group: 'Serif', names: ['Times New Roman', 'Times'] },
+    { id: 'palatino', label: 'Palatino', group: 'Serif', names: ['Palatino', 'Palatino Linotype', 'Book Antiqua'] },
+    { id: 'baskerville', label: 'Baskerville', group: 'Serif', names: ['Baskerville'] },
+    { id: 'garamond', label: 'Garamond', group: 'Serif', names: ['Garamond', 'EB Garamond', 'Apple Garamond'] },
+    { id: 'cambria', label: 'Cambria', group: 'Serif', names: ['Cambria'] },
+    { id: 'constantia', label: 'Constantia', group: 'Serif', names: ['Constantia'] },
+    { id: 'charter', label: 'Charter', group: 'Serif', names: ['Charter'] },
+    { id: 'didot', label: 'Didot', group: 'Serif', names: ['Didot'] },
+    { id: 'hoefler', label: 'Hoefler Text', group: 'Serif', names: ['Hoefler Text'] },
+    { id: 'iowan', label: 'Iowan Old Style', group: 'Serif', names: ['Iowan Old Style'] },
+    { id: 'new-york', label: 'New York', group: 'Serif', names: ['New York'] },
+    { id: 'cochin', label: 'Cochin', group: 'Serif', names: ['Cochin'] },
+    { id: 'big-caslon', label: 'Big Caslon', group: 'Serif', names: ['Big Caslon'] },
+    { id: 'bookman', label: 'Bookman', group: 'Serif', names: ['Bookman Old Style', 'Bookman'] },
+    { id: 'rockwell', label: 'Rockwell', group: 'Serif', names: ['Rockwell'] },
+    { id: 'noto-serif', label: 'Noto Serif', group: 'Serif', names: ['Noto Serif'] },
+
+    { id: 'menlo', label: 'Menlo', group: 'Mono', names: ['Menlo'] },
+    { id: 'monaco', label: 'Monaco', group: 'Mono', names: ['Monaco'] },
+    { id: 'sf-mono', label: 'SF Mono', group: 'Mono', names: ['SF Mono', 'SFMono-Regular'] },
+    { id: 'consolas', label: 'Consolas', group: 'Mono', names: ['Consolas'] },
+    { id: 'cascadia', label: 'Cascadia', group: 'Mono', names: ['Cascadia Mono', 'Cascadia Code'] },
+    { id: 'courier', label: 'Courier New', group: 'Mono', names: ['Courier New', 'Courier'] },
+    { id: 'andale', label: 'Andale Mono', group: 'Mono', names: ['Andale Mono'] },
+    { id: 'lucida-console', label: 'Lucida Console', group: 'Mono', names: ['Lucida Console'] },
+    { id: 'pt-mono', label: 'PT Mono', group: 'Mono', names: ['PT Mono'] },
+    { id: 'dejavu-mono', label: 'DejaVu Sans Mono', group: 'Mono', names: ['DejaVu Sans Mono'] },
+
+    { id: 'bradley', label: 'Bradley Hand', group: 'Handwriting', names: ['Bradley Hand'] },
+    { id: 'marker-felt', label: 'Marker Felt', group: 'Handwriting', names: ['Marker Felt'] },
+    { id: 'noteworthy', label: 'Noteworthy', group: 'Handwriting', names: ['Noteworthy'] },
+    { id: 'chalkboard', label: 'Chalkboard', group: 'Handwriting', names: ['Chalkboard SE', 'Chalkboard'] },
+    { id: 'snell', label: 'Snell Roundhand', group: 'Handwriting', names: ['Snell Roundhand'] },
+    { id: 'savoye', label: 'Savoye', group: 'Handwriting', names: ['Savoye LET'] },
+    { id: 'zapfino', label: 'Zapfino', group: 'Handwriting', names: ['Zapfino'] },
+    { id: 'trattatello', label: 'Trattatello', group: 'Handwriting', names: ['Trattatello'] },
+    { id: 'comic', label: 'Comic Sans MS', group: 'Handwriting', names: ['Comic Sans MS'] },
+    { id: 'segoe-script', label: 'Segoe Script', group: 'Handwriting', names: ['Segoe Script'] },
+    { id: 'ink-free', label: 'Ink Free', group: 'Handwriting', names: ['Ink Free'] },
+
+    { id: 'american-typewriter', label: 'American Typewriter', group: 'Display', names: ['American Typewriter'] },
+    { id: 'copperplate', label: 'Copperplate', group: 'Display', names: ['Copperplate'] },
+    { id: 'impact', label: 'Impact', group: 'Display', names: ['Impact'] },
+    { id: 'papyrus', label: 'Papyrus', group: 'Display', names: ['Papyrus'] },
+    { id: 'luminari', label: 'Luminari', group: 'Display', names: ['Luminari'] },
+    { id: 'chalkduster', label: 'Chalkduster', group: 'Display', names: ['Chalkduster'] },
+    { id: 'phosphate', label: 'Phosphate', group: 'Display', names: ['Phosphate'] },
+    { id: 'bodoni', label: 'Bodoni', group: 'Display', names: ['Bodoni 72', 'Bodoni MT'] },
+    { id: 'herculanum', label: 'Herculanum', group: 'Display', names: ['Herculanum'] },
+    { id: 'party', label: 'Party', group: 'Display', names: ['Party LET'] },
+    { id: 'stencil', label: 'Stencil', group: 'Display', names: ['Stencil'] },
+    { id: 'haettenschweiler', label: 'Haettenschweiler', group: 'Display', names: ['Haettenschweiler'] }
   ];
   var DEFAULT_FONT = 'system';
+  var FONT_GROUPS = ['Sans', 'Serif', 'Mono', 'Handwriting', 'Display'];
+  var GENERIC = {
+    Sans: 'sans-serif', Serif: 'serif', Mono: 'monospace',
+    Handwriting: 'cursive', Display: 'sans-serif'
+  };
+
+  function quoted(name) { return '"' + name + '"'; }
+
+  // Each single-family entry ends in its group's generic, so a face that goes
+  // missing between one release and the next still lands somewhere sensible.
+  FONTS.forEach(function (font) {
+    if (!font.stack) font.stack = font.names.map(quoted).join(', ') + ', ' + GENERIC[font.group];
+  });
+
+  // A family the user typed themselves, so someone who has installed a font of
+  // their own is not held to this list. The name goes into a style property, so
+  // it is cut down to what a font name can actually contain first.
+  var CUSTOM = 'custom:';
+
+  function safeFamily(name) {
+    return String(name || '').replace(/[^A-Za-z0-9 \-_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 48);
+  }
+
+  function customFont(name) {
+    var family = safeFamily(name);
+    if (!family) return null;
+    return {
+      id: CUSTOM + family, label: family, group: 'On this device', custom: true,
+      names: [family], stack: quoted(family) + ', ' + GENERIC.Sans
+    };
+  }
 
   function fontFor(id) {
+    if (typeof id === 'string' && id.indexOf(CUSTOM) === 0) {
+      return customFont(id.slice(CUSTOM.length)) || FONTS[0];
+    }
     var found = null;
     FONTS.forEach(function (font) { if (font.id === id) found = font; });
     return found || FONTS[0];
+  }
+
+  // Whether the device really has a family, by measuring: a name it does not
+  // know falls through to the generic beside it and comes back exactly as wide.
+  // Three generics, because a face that *is* one of them (Times, say) matches
+  // that one and nothing else. Answers are kept -- the fonts installed on a
+  // device do not change while the app is open.
+  var measured = {};
+  var measure = null;
+
+  function measurer() {
+    if (measure) return measure;
+    var context = document.createElement('canvas').getContext('2d');
+    if (!context) return null;
+    var probe = 'MWQ@gil109 mmmwwwiii';
+    var base = {};
+    ['monospace', 'serif', 'sans-serif'].forEach(function (generic) {
+      context.font = '72px ' + generic;
+      base[generic] = context.measureText(probe).width;
+    });
+    measure = function (family) {
+      var wanted = false;
+      ['monospace', 'serif', 'sans-serif'].forEach(function (generic) {
+        context.font = '72px ' + quoted(family) + ', ' + generic;
+        if (context.measureText(probe).width !== base[generic]) wanted = true;
+      });
+      return wanted;
+    };
+    return measure;
+  }
+
+  function hasFamily(name) {
+    var family = safeFamily(name);
+    if (!family) return false;
+    if (measured[family] === undefined) {
+      var test = measurer();
+      // No canvas to measure with: say yes rather than hide the whole list.
+      measured[family] = test ? test(family) : true;
+    }
+    return measured[family];
+  }
+
+  // The catalogue, minus what this device cannot actually render. `keep` is the
+  // font in use, which stays listed even if it came from another device -- the
+  // picker should never fail to show what it is currently set to.
+  function availableFonts(keep) {
+    var out = [];
+    FONTS.forEach(function (font) {
+      var usable = !font.names || font.names.some(hasFamily);
+      if (usable || font.id === keep) out.push(font);
+    });
+    if (typeof keep === 'string' && keep.indexOf(CUSTOM) === 0) {
+      var own = customFont(keep.slice(CUSTOM.length));
+      if (own) out.push(own);
+    }
+    return out;
   }
 
   // Starting points, not limits: every colour stays editable afterwards. A
@@ -433,7 +603,12 @@ window.Theme = (function () {
     TEXT_SIZES: TEXT_SIZES,
     DEFAULT_TEXT_SIZE: DEFAULT_TEXT_SIZE,
     FONTS: FONTS,
+    FONT_GROUPS: FONT_GROUPS,
     DEFAULT_FONT: DEFAULT_FONT,
+    fontFor: fontFor,
+    customFont: customFont,
+    hasFamily: hasFamily,
+    availableFonts: availableFonts,
     apply: apply,
     normalise: normalise,
     contrast: contrast,

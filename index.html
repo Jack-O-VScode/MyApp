@@ -399,9 +399,29 @@
       <div class="set-row">
         <div class="set-row-text">
           <strong>Font</strong>
-          <span>All of them ship with your devices, so nothing is downloaded.</span>
+          <span>Only what this device already has, so nothing is downloaded.
+                Type to search, or name a font you installed yourself.</span>
         </div>
-        <div id="font-choice" class="segmented" role="group" aria-label="Font"></div>
+        <div id="font-combo" class="combo">
+          <button id="font-button" class="combo-button" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-label="Font">
+            <span id="font-current">System</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div id="font-panel" class="combo-panel" hidden>
+            <label class="combo-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>
+              </svg>
+              <input id="font-search" type="search" placeholder="Search fonts"
+                     autocomplete="off" autocapitalize="none" spellcheck="false"
+                     role="combobox" aria-autocomplete="list" aria-expanded="true"
+                     aria-controls="font-list" aria-label="Search fonts">
+            </label>
+            <ul id="font-list" class="combo-list" role="listbox" aria-label="Font"></ul>
+            <p id="font-empty" class="combo-empty" hidden></p>
+          </div>
+        </div>
       </div>
 
       <div class="set-row">

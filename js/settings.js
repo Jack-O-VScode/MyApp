@@ -181,10 +181,159 @@ window.SettingsView = (function () {
     });
   }
 
+  /* ---------------------------------------------------------- font picker -- */
+  // Too many faces for a row of buttons, so: a button that opens a panel with a
+  // search box over a list. Only what the device can actually render is offered,
+  // and every name is drawn in its own face.
+
+  var fontCatalogue = null;
+  var fontShown = [];                 // what the list is showing, in order
+  var fontAt = -1;                    // which of those the keyboard is on
+
+  function catalogue() {
+    if (fontCatalogue) return fontCatalogue;
+    var all = Theme.availableFonts(settings().font);
+    fontCatalogue = [];
+    // Group order comes from Theme; a family the user named themselves has a
+    // group of its own and goes after the rest.
+    Theme.FONT_GROUPS.forEach(function (group) {
+      all.forEach(function (font) { if (font.group === group) fontCatalogue.push(font); });
+    });
+    all.forEach(function (font) {
+      if (Theme.FONT_GROUPS.indexOf(font.group) === -1) fontCatalogue.push(font);
+    });
+    return fontCatalogue;
+  }
+
+  function fontMatches(query) {
+    var text = query.trim().toLowerCase();
+    var list = catalogue().filter(function (font) {
+      return !text || font.label.toLowerCase().indexOf(text) !== -1;
+    });
+    // Not in the list, but the device has a family by that name: offer it, so
+    // nobody is held to this catalogue for a font they installed themselves.
+    var own = text ? Theme.customFont(query) : null;
+    var already = own && list.some(function (font) {
+      return font.label.toLowerCase() === own.label.toLowerCase();
+    });
+    if (own && !already && Theme.hasFamily(own.label)) list.unshift(own);
+    return list;
+  }
+
+  function tick() {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'combo-tick');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'm5 12 4.5 4.5L19 7');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function renderFontList() {
+    var chosen = settings().font || Theme.DEFAULT_FONT;
+    fontShown = fontMatches(els.fontSearch.value);
+
+    els.fontList.innerHTML = '';
+    var fragment = document.createDocumentFragment();
+    var group = '';
+
+    fontShown.forEach(function (font, index) {
+      if (font.group !== group) {
+        group = font.group;
+        var heading = document.createElement('li');
+        heading.className = 'combo-group';
+        heading.setAttribute('role', 'presentation');
+        heading.textContent = group;
+        fragment.appendChild(heading);
+      }
+
+      var option = document.createElement('li');
+      option.className = 'combo-option';
+      option.id = 'font-option-' + index;
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', font.id === chosen ? 'true' : 'false');
+      option.dataset.font = font.id;
+      option.style.fontFamily = font.stack;
+      if (font.id === chosen) option.classList.add('is-on');
+
+      var name = document.createElement('span');
+      name.textContent = font.label;
+      option.appendChild(tick());
+      option.appendChild(name);
+      fragment.appendChild(option);
+    });
+    els.fontList.appendChild(fragment);
+
+    els.fontEmpty.hidden = fontShown.length > 0;
+    els.fontEmpty.textContent = 'No font called that on this device.';
+    setFontAt(fontShown.length ? 0 : -1, false);
+  }
+
+  function setFontAt(index, scroll) {
+    fontAt = index;
+    var options = els.fontList.querySelectorAll('.combo-option');
+    Array.prototype.forEach.call(options, function (option, at) {
+      option.classList.toggle('is-active', at === index);
+    });
+    var active = index < 0 ? null : options[index];
+    if (!active) {
+      els.fontSearch.removeAttribute('aria-activedescendant');
+      return;
+    }
+    els.fontSearch.setAttribute('aria-activedescendant', active.id);
+    if (scroll) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  function openFonts() {
+    // Built fresh each time: which fonts a device has is its own business, and
+    // the one in use has to stay listed even if it came from another device.
+    fontCatalogue = null;
+    els.fontPanel.classList.remove('is-above');
+    els.fontPanel.hidden = false;
+    els.fontButton.setAttribute('aria-expanded', 'true');
+    els.fontSearch.value = '';
+    renderFontList();
+
+    // Font is near the bottom of a long settings page, so on a short window the
+    // panel would hang off the end of it. Given more room above than below, it
+    // opens upward instead.
+    var button = els.fontButton.getBoundingClientRect();
+    var panel = els.fontPanel.getBoundingClientRect();
+    var below = window.innerHeight - button.bottom;
+    if (panel.height > below - 8 && button.top > below) {
+      els.fontPanel.classList.add('is-above');
+    }
+
+    els.fontSearch.focus();
+  }
+
+  function closeFonts(back) {
+    if (els.fontPanel.hidden) return;
+    els.fontPanel.hidden = true;
+    els.fontButton.setAttribute('aria-expanded', 'false');
+    if (back) els.fontButton.focus();
+  }
+
+  function pickFont(id) {
+    var values = Object.assign({}, settings(), { font: id });
+    Theme.apply(appearance(values));
+    saveNow({ font: id });
+    renderTextAndTimes();
+    closeFonts(true);
+  }
+
+  function renderFontButton(values) {
+    var font = Theme.fontFor(values.font || Theme.DEFAULT_FONT);
+    els.fontCurrent.textContent = font.label;
+    els.fontCurrent.style.fontFamily = font.stack;
+  }
+
   function renderTextAndTimes() {
     var values = settings();
     markSegmented(els.buttonStyle, 'style', values.buttonStyle === 'solid' ? 'solid' : 'glass');
-    markSegmented(els.font, 'font', values.font || Theme.DEFAULT_FONT);
+    renderFontButton(values);
     markSegmented(els.textSize, 'size', values.textSize || Theme.DEFAULT_TEXT_SIZE);
     markSegmented(els.clock, 'clock', values.clock || '');
   }
@@ -207,14 +356,19 @@ window.SettingsView = (function () {
     els.followNote = document.getElementById('theme-follow-note');
     els.presets = document.getElementById('theme-presets');
     els.buttonStyle = document.getElementById('button-style');
-    els.font = document.getElementById('font-choice');
+    els.fontCombo = document.getElementById('font-combo');
+    els.fontButton = document.getElementById('font-button');
+    els.fontCurrent = document.getElementById('font-current');
+    els.fontPanel = document.getElementById('font-panel');
+    els.fontSearch = document.getElementById('font-search');
+    els.fontList = document.getElementById('font-list');
+    els.fontEmpty = document.getElementById('font-empty');
     els.textSize = document.getElementById('text-size');
     els.clock = document.getElementById('clock-format');
 
     buildPresets();
     buildSegmented(els.bgMode, BG_MODES, 'mode');
     buildSegmented(els.buttonStyle, BUTTON_STYLES, 'style');
-    buildSegmented(els.font, Theme.FONTS, 'font');
     buildSegmented(els.textSize, Theme.TEXT_SIZES, 'size');
     buildSegmented(els.clock, CLOCKS, 'clock');
 
@@ -273,13 +427,42 @@ window.SettingsView = (function () {
       renderTextAndTimes();
     });
 
-    els.font.addEventListener('click', function (clickEvent) {
-      var button = clickEvent.target.closest('button');
-      if (!button) return;
-      var values = Object.assign({}, settings(), { font: button.dataset.font });
-      Theme.apply(appearance(values));
-      saveNow({ font: button.dataset.font });
-      renderTextAndTimes();
+    els.fontButton.addEventListener('click', function () {
+      if (els.fontPanel.hidden) openFonts();
+      else closeFonts(true);
+    });
+
+    els.fontSearch.addEventListener('input', renderFontList);
+
+    els.fontSearch.addEventListener('keydown', function (keyEvent) {
+      var key = keyEvent.key;
+      if (key === 'ArrowDown' || key === 'ArrowUp') {
+        keyEvent.preventDefault();
+        if (!fontShown.length) return;
+        var next = fontAt + (key === 'ArrowDown' ? 1 : -1);
+        if (next < 0) next = fontShown.length - 1;
+        if (next >= fontShown.length) next = 0;
+        setFontAt(next, true);
+      } else if (key === 'Enter') {
+        keyEvent.preventDefault();
+        if (fontShown[fontAt]) pickFont(fontShown[fontAt].id);
+      } else if (key === 'Escape') {
+        keyEvent.preventDefault();
+        closeFonts(true);
+      } else if (key === 'Tab') {
+        closeFonts(false);
+      }
+    });
+
+    els.fontList.addEventListener('click', function (clickEvent) {
+      var option = clickEvent.target.closest('.combo-option');
+      if (option) pickFont(option.dataset.font);
+    });
+
+    // Anywhere else puts it away. This runs after the list's own click, so
+    // picking a font is never cut short by the panel closing first.
+    document.addEventListener('click', function (clickEvent) {
+      if (!els.fontPanel.hidden && !els.fontCombo.contains(clickEvent.target)) closeFonts(false);
     });
 
     els.textSize.addEventListener('click', function (clickEvent) {

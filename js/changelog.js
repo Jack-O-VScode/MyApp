@@ -9,6 +9,14 @@
 */
 window.CHANGELOG = [
   {
+    version: 25, date: '2026-09-17', title: 'Every font your device has',
+    changes: [
+      { kind: 'new', text: 'Font is now a searchable list of around seventy faces instead of four. Type to narrow it down, and every name is drawn in its own font so you can see what you are choosing.' },
+      { kind: 'new', text: 'Installed a font yourself? Type its name and the app will offer it, whether or not it is on the list.' },
+      { kind: 'better', text: 'The list only offers what your device actually has, so nothing quietly falls back to a face you did not pick — which is why the phone and the PC show different lists.' }
+    ]
+  },
+  {
     version: 24, date: '2026-09-17', title: 'A calendar you can look at',
     changes: [
       { kind: 'new', text: 'The calendar switches between Day, Week, Month, Year and Agenda. Week gives every day its own column, and Year lays out all twelve months with a dot on the days something is on.' },

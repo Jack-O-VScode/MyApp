@@ -126,9 +126,17 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   once, with an X to close. The mark of what has been seen is kept per device,
   so reading them on the PC does not rob the phone of them, and a first install
   shows nothing — there is no update to announce.
-- **Font** — System, Rounded, Serif or Mono. All four are faces the platforms
-  already ship, so nothing is downloaded, there is no flash of the wrong one,
-  and it works with no connection.
+- **Font** — a searchable list of around seventy faces. Type to narrow it down;
+  every name is drawn in its own font, so the list is its own preview. Nothing
+  is downloaded — these are faces the platforms already ship, so there is no
+  waiting, no flash of the wrong one, and it works with no connection.
+  The catalogue is filtered to what the device can **actually render**, by
+  measuring rather than guessing: a name the system does not know falls through
+  to the generic beside it and comes back exactly as wide, which is how the app
+  tells. So the phone and the PC offer different lists, and neither offers a
+  font that would silently turn into something else. A family you installed
+  yourself is not excluded either — type its name and it is offered if the
+  device has it.
 - **Text size** — Small, Normal or Large, scaling the whole app.
 - **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,
   tasks, notes and the Timezones screen all read from the one setting.

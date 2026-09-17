@@ -1302,6 +1302,124 @@ main {
   letter-spacing: .02em;
 }
 
+/* ------------------------------------------------------ searchable picker -- */
+/* A list too long for a row of buttons: a button that opens a panel with a
+   search box over it. The panel is anchored to the button rather than the page,
+   so it follows the row wherever the settings list puts it. */
+.combo { position: relative; flex: none; }
+
+.combo-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  max-width: 100%;
+  padding: 8px 10px 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: .9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.combo-button span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.combo-button svg { width: 18px; height: 18px; flex: none; color: var(--text-soft); }
+.combo-button:hover { border-color: var(--brand); }
+.combo-button[aria-expanded="true"] { border-color: var(--brand); }
+
+.combo-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  /* Set when the row sits too low for the panel to fit under it. */
+  --flip: 0;
+  width: min(300px, 78vw);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.combo-panel.is-above {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.combo-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.combo-search svg { width: 17px; height: 17px; flex: none; color: var(--text-soft); }
+.combo-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: 0;
+  background: none;
+  font-size: .92rem;
+  outline: none;
+}
+.combo-search input::-webkit-search-cancel-button { display: none; }
+
+.combo-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(320px, 46vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.combo-group {
+  padding: 8px 10px 4px;
+  color: var(--text-soft);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.combo-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  /* Each name is drawn in its own face: the only preview that means anything. */
+  font-size: 1rem;
+  cursor: pointer;
+}
+.combo-option:hover, .combo-option.is-active { background: var(--surface-2); }
+.combo-option.is-on { color: var(--brand); font-weight: 650; }
+.combo-option .combo-tick { width: 16px; height: 16px; flex: none; opacity: 0; }
+.combo-option.is-on .combo-tick { opacity: 1; }
+.combo-option span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.combo-empty {
+  margin: 10px 4px 4px;
+  color: var(--text-soft);
+  font-size: .84rem;
+  text-align: center;
+}
+
 .segmented {
   display: flex;
   flex: none;
