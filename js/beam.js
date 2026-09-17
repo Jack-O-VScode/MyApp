@@ -343,7 +343,8 @@ window.Beam = (function () {
   // while a tap is being processed. Doing it when the transfer happens to
   // finish is not a tap, so iOS refuses and the file goes nowhere. The sink
   // therefore stops at "held" and waits for the Save button.
-  function makeSink(name, type) {
+  function makeSink(rawName, type) {
+    var name = withExtension(rawName, type);
     if (typeof window.showSaveFilePicker === 'function') {
       return window.showSaveFilePicker({ suggestedName: name }).then(function (handle) {
         return handle.createWritable().then(function (writable) {
@@ -383,7 +384,32 @@ window.Beam = (function () {
   // iOS has no downloads folder, so offer the share sheet — Save to Files,
   // Photos, AirDrop, anywhere — and fall back to a plain download elsewhere.
   // Every branch reports what actually happened; "saved" is never a guess.
-  function saveBlob(blob, name) {
+  // iOS decides what a file is from its name as much as from its type, and
+  // "Save Video" will not take something it cannot name. A file that arrives
+  // without an extension therefore gets one that matches what it actually is.
+  var EXTENSIONS = {
+    'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/x-matroska': 'mkv',
+    'video/webm': 'webm', 'video/x-msvideo': 'avi',
+    'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+    'image/heic': 'heic', 'image/webp': 'webp',
+    'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/wav': 'wav',
+    'application/pdf': 'pdf', 'application/zip': 'zip',
+    'text/plain': 'txt', 'text/csv': 'csv', 'application/json': 'json'
+  };
+
+  function withExtension(name, type) {
+    var clean = String(name || '').trim() || 'file';
+    var tail = clean.slice(clean.lastIndexOf('/') + 1);
+    // Short, and with at least one letter in it: "clip.mp4" and "notes.gz" are
+    // already named, "Holiday.2026" and "trim-178962" are not — a year or a
+    // timestamp is no use to iOS when it decides what a file is.
+    if (/\.[A-Za-z0-9]{0,4}[A-Za-z][A-Za-z0-9]{0,4}$/.test(tail)) return clean;
+    var wanted = EXTENSIONS[String(type || '').toLowerCase().split(';')[0]];
+    return wanted ? clean + '.' + wanted : clean;
+  }
+
+  function saveBlob(blob, rawName) {
+    var name = withExtension(rawName, blob.type);
     var file = null;
     try {
       file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
@@ -393,7 +419,7 @@ window.Beam = (function () {
 
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
       return navigator.share({ files: [file] }).then(function () {
-        return { outcome: 'shared' };
+        return { outcome: 'shared', where: name };
       }, function (err) {
         // Dismissing the sheet and never being allowed to open it both land
         // here, and they are not the same thing to tell someone.

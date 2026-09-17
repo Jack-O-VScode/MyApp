@@ -72,6 +72,9 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   being processed, so it cannot be done automatically when the transfer
   happens to finish. Until you tap it the file lives only in the open page, and
   the screen says as much rather than claiming to have saved it.
+- A file whose name carries no extension gets one matching what it actually is
+  before being handed over. iOS decides what a file is from its name as much as
+  from its type, and **Save Video** will not take something it cannot name.
 - The app warns before accepting something that looks too big for the device.
 
 *Leave it for later* — up to 50 MB, no one has to be present

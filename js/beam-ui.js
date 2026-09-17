@@ -119,8 +119,14 @@ window.BeamView = (function () {
               : 'Received — tap Save to keep it, or it is lost when you close the app'));
       case 'done':
         if (job.role === 'send') return 'Sent';
-        if (job.outcome === 'shared') return 'Handed to the share sheet';
-        if (job.outcome === 'downloaded') return 'Saved to your downloads';
+        // Naming it matters: the extension is what lets iOS offer Save Video,
+        // and seeing it is how you know the file is what you think it is.
+        if (job.outcome === 'shared') {
+          return 'Handed to the share sheet' + (job.where ? ' as ' + job.where : '');
+        }
+        if (job.outcome === 'downloaded') {
+          return 'Saved to your downloads' + (job.where ? ' as ' + job.where : '');
+        }
         return job.where ? 'Saved as ' + job.where : 'Saved';
       case 'cancelled': return 'Cancelled';
       case 'failed': return job.error || 'Failed';
