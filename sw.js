@@ -1,12 +1,13 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v22';
+var CACHE = 'calendar-notes-v23';
 
 var SHELL = [
   './',
   'index.html',
   'css/app.css',
   'js/config.js',
+  'js/changelog.js',
   'js/theme.js',
   'js/store.js',
   'js/ics.js',

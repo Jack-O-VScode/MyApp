@@ -1595,4 +1595,79 @@ main {
 }
 
 
+/* ---------------------------------------------------------- patch notes -- */
+.version-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.notes-panel { max-width: 640px; }
+.notes-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.notes-head h2 { flex: 1; margin: 0; }
+
+.notes-body {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  margin: 4px -4px 0;
+  padding: 0 4px;
+}
+
+.notes-release + .notes-release {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.notes-release-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+}
+.notes-release-head span {
+  color: var(--text-soft);
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+}
+.notes-release ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.notes-release li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: .9rem;
+}
+
+.notes-tag {
+  flex: none;
+  min-width: 3.4em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: .01em;
+}
+.notes-tag[data-kind="new"] { background: var(--brand-soft); color: var(--brand); }
+.notes-tag[data-kind="better"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.notes-tag[data-kind="fixed"] {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+
 [hidden] { display: none !important; }

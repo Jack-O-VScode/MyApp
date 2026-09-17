@@ -504,6 +504,134 @@
     appVersion = text;
     var node = document.getElementById('app-version');
     if (node) node.textContent = text;
+    considerNotes();
+  }
+
+  /* ----------------------------------------------------------- patch notes -- */
+
+  // Which build's notes this device has already been shown. Device-local on
+  // purpose: each one updates on its own schedule, and reading the notes on the
+  // PC should not rob the phone of them.
+  var SEEN_KEY = 'calendar-notes.seen-version';
+  var notesEls = {};
+
+  function buildNumber(text) {
+    var match = /v(\d+)$/.exec(String(text || ''));
+    return match ? Number(match[1]) : 0;
+  }
+
+  function lastSeen() {
+    try {
+      return Number(localStorage.getItem(SEEN_KEY)) || 0;
+    } catch (err) {
+      return 0;
+    }
+  }
+
+  function rememberSeen(version) {
+    try {
+      localStorage.setItem(SEEN_KEY, String(version));
+    } catch (err) {
+      // A device that cannot remember will be told again. Harmless.
+    }
+  }
+
+  function releasesSince(version) {
+    return (window.CHANGELOG || []).filter(function (release) {
+      return release.version > version;
+    });
+  }
+
+  function renderNotes(releases, lead) {
+    notesEls.lead.textContent = lead;
+    notesEls.body.innerHTML = '';
+
+    releases.forEach(function (release) {
+      var block = document.createElement('section');
+      block.className = 'notes-release';
+
+      var head = document.createElement('div');
+      head.className = 'notes-release-head';
+      var name = document.createElement('strong');
+      name.textContent = release.title;
+      var when = document.createElement('span');
+      when.textContent = 'v' + release.version + ' · ' + release.date;
+      head.appendChild(name);
+      head.appendChild(when);
+      block.appendChild(head);
+
+      var list = document.createElement('ul');
+      release.changes.forEach(function (change) {
+        var item = document.createElement('li');
+        var tag = document.createElement('span');
+        tag.className = 'notes-tag';
+        tag.dataset.kind = change.kind;
+        tag.textContent = change.kind === 'new' ? 'New'
+          : (change.kind === 'fixed' ? 'Fixed' : 'Better');
+        var body = document.createElement('span');
+        body.textContent = change.text;
+        item.appendChild(tag);
+        item.appendChild(body);
+        list.appendChild(item);
+      });
+      block.appendChild(list);
+      notesEls.body.appendChild(block);
+    });
+  }
+
+  function openNotes(releases, lead, offerAll) {
+    renderNotes(releases, lead);
+    notesEls.all.hidden = !offerAll;
+    notesEls.modal.hidden = false;
+    notesEls.modal.scrollTop = 0;
+    notesEls.body.scrollTop = 0;
+  }
+
+  function showEverything() {
+    var all = window.CHANGELOG || [];
+    openNotes(all, all.length + ' releases so far, newest first.', false);
+  }
+
+  // Called whenever the version becomes known. Shows once per build, and never
+  // on a device's very first run — there is no update to tell them about.
+  var consideredNotes = false;
+
+  function considerNotes() {
+    if (consideredNotes || !notesEls.modal) return;
+    var current = buildNumber(appVersion);
+    if (!current) return;
+    consideredNotes = true;
+
+    var seen = lastSeen();
+    rememberSeen(current);
+    if (!seen || current <= seen) return;
+
+    var fresh = releasesSince(seen);
+    if (!fresh.length) return;
+    openNotes(fresh, fresh.length === 1
+      ? 'One update since you were last here.'
+      : fresh.length + ' updates since you were last here.', true);
+  }
+
+  function setupNotes() {
+    notesEls = {
+      modal: document.getElementById('notes-modal'),
+      lead: document.getElementById('notes-lead'),
+      body: document.getElementById('notes-body'),
+      all: document.getElementById('notes-all')
+    };
+
+    document.getElementById('patch-notes-open')
+      .addEventListener('click', showEverything);
+    notesEls.all.addEventListener('click', showEverything);
+
+    Array.prototype.forEach.call(notesEls.modal.querySelectorAll('[data-notes-close]'),
+      function (button) {
+        button.addEventListener('click', function () { notesEls.modal.hidden = true; });
+      });
+    notesEls.modal.addEventListener('mousedown', function (clickEvent) {
+      if (clickEvent.target === notesEls.modal) notesEls.modal.hidden = true;
+    });
   }
 
   // A new build installs itself and takes over; the page still in front of you
@@ -733,6 +861,7 @@
     setupSync();
     setupReminders();
     setupIcsImport();
+    setupNotes();
 
     menuButton.addEventListener('click', function () {
       if (menuIsOpen()) closeMenu(true);
@@ -770,6 +899,7 @@
       else if (!help.hidden) help.hidden = true;
       else if (!syncEls.modal.hidden) syncEls.modal.hidden = true;
       else if (!remEls.modal.hidden) remEls.modal.hidden = true;
+      else if (!notesEls.modal.hidden) notesEls.modal.hidden = true;
       else if (!icsEls.modal.hidden) icsEls.modal.hidden = true;
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
       else if (TasksView.isModalOpen()) TasksView.closeModal();

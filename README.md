@@ -111,6 +111,11 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 - **Version** — which build this device is actually running, read from the
   service worker itself. When a new one takes over, the app says so and reloads,
   rather than leaving you to guess whether a fix has arrived.
+- **See patch notes** lists every release and what changed in it. A device that
+  starts a build it has not run before shows the notes for everything it missed,
+  once, with an X to close. The mark of what has been seen is kept per device,
+  so reading them on the PC does not rob the phone of them, and a first install
+  shows nothing — there is no update to announce.
 - **Text size** — Small, Normal or Large, scaling the whole app.
 - **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,
   tasks, notes and the Timezones screen all read from the one setting.
@@ -562,6 +567,7 @@ Consequences worth knowing:
 index.html              markup for every view, the menu and the dialogs
 css/app.css             all styling, including the light/dark palette
 js/config.js            which project this copy connects to, and the push key
+js/changelog.js         what changed in each release, newest first
 js/theme.js             derives the palette from the two chosen colours; runs
                         from <head> so a custom app never flashes the default
 js/store.js             data layer: events, tasks, notes, recurrence, search

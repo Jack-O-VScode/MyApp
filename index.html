@@ -390,7 +390,10 @@
           <strong>Version</strong>
           <span>Which build this device is actually running.</span>
         </div>
-        <span id="app-version" class="swatch-value">checking…</span>
+        <div class="version-field">
+          <span id="app-version" class="swatch-value">checking…</span>
+          <button id="patch-notes-open" class="button small" type="button">See patch notes</button>
+        </div>
       </div>
 
       <div class="set-row">
@@ -403,6 +406,25 @@
     </section>
   </section>
 </main>
+
+<!-- ----------------------------- Patch notes ------------------------------- -->
+<div id="notes-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="notes-title" hidden>
+  <div class="modal-panel notes-panel">
+    <div class="notes-head">
+      <h2 id="notes-title">What&rsquo;s new</h2>
+      <button class="icon-button" type="button" data-notes-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p id="notes-lead" class="set-note"></p>
+    <div id="notes-body" class="notes-body"></div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button id="notes-all" class="button" type="button" hidden>Show everything</button>
+      <button class="button primary" type="button" data-notes-close>Done</button>
+    </div>
+  </div>
+</div>
 
 <!-- --------------------------- Calendar import ----------------------------- -->
 <div id="ics-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="ics-title" hidden>
@@ -830,6 +852,7 @@ create index if not exists reminders_pending
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="js/config.js"></script>
+<script src="js/changelog.js"></script>
 <script src="js/store.js"></script>
 <script src="js/ics.js"></script>
 <script src="js/format.js"></script>
