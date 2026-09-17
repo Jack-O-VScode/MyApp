@@ -102,6 +102,9 @@ window.Beam = (function () {
       peerName: job.peerName || session.from_name || '',
       done: job.bytes || 0,
       total: total,
+      outcome: job.outcome || '',
+      where: job.where || '',
+      canSave: !!(job.sink && job.sink.deliver),
       progress: total ? Math.min(1, (job.bytes || 0) / total) : 0,
       rate: job.rate || 0,
       error: job.error || '',
@@ -329,10 +332,17 @@ window.Beam = (function () {
 
   /* ----------------------------------------------------------------- sinks -- */
 
-  // Where a received file goes. On a desktop browser it streams straight into
-  // the file the user picked, so nothing is ever held; everywhere else it has
-  // to be collected first and handed over at the end, which is what puts a
-  // ceiling on the size those devices can accept.
+  // Where a received file goes.
+  //
+  // A desktop browser writes straight into the file the user picked at the
+  // start, so by the time the transfer ends it is already on disk and there is
+  // nothing left to do.
+  //
+  // Everywhere else — iPhone and iPad above all — the file has to be collected
+  // first and then handed to the system, and the handing over is only allowed
+  // while a tap is being processed. Doing it when the transfer happens to
+  // finish is not a tap, so iOS refuses and the file goes nowhere. The sink
+  // therefore stops at "held" and waits for the Save button.
   function makeSink(name, type) {
     if (typeof window.showSaveFilePicker === 'function') {
       return window.showSaveFilePicker({ suggestedName: name }).then(function (handle) {
@@ -340,7 +350,11 @@ window.Beam = (function () {
           return {
             kind: 'disk',
             write: function (blob) { return writable.write(blob); },
-            close: function () { return writable.close().then(function () { return 'saved'; }); },
+            close: function () {
+              return writable.close().then(function () {
+                return { outcome: 'saved', where: handle.name || name };
+              });
+            },
             abort: function () { return writable.abort().catch(function () {}); }
           };
         });
@@ -348,16 +362,27 @@ window.Beam = (function () {
     }
 
     var parts = [];
+    var held = null;
     return Promise.resolve({
       kind: 'memory',
       write: function (blob) { parts.push(blob); return Promise.resolve(); },
-      close: function () { return saveBlob(new Blob(parts, { type: type || '' }), name); },
-      abort: function () { parts.length = 0; return Promise.resolve(); }
+      close: function () {
+        held = new Blob(parts, { type: type || '' });
+        parts = [];
+        return Promise.resolve({ outcome: 'held' });
+      },
+      // Called from the Save button, so the tap is still live and iOS allows it.
+      deliver: function () {
+        if (!held) return Promise.resolve({ outcome: 'lost' });
+        return saveBlob(held, name);
+      },
+      abort: function () { parts = []; held = null; return Promise.resolve(); }
     });
   }
 
-  // iOS has no downloads folder, so offer the share sheet there and fall back
-  // to a plain download elsewhere.
+  // iOS has no downloads folder, so offer the share sheet — Save to Files,
+  // Photos, AirDrop, anywhere — and fall back to a plain download elsewhere.
+  // Every branch reports what actually happened; "saved" is never a guess.
   function saveBlob(blob, name) {
     var file = null;
     try {
@@ -365,19 +390,31 @@ window.Beam = (function () {
     } catch (err) {
       file = null;
     }
+
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-      return navigator.share({ files: [file] })
-        .then(function () { return 'shared'; }, function () { return 'cancelled'; });
+      return navigator.share({ files: [file] }).then(function () {
+        return { outcome: 'shared' };
+      }, function (err) {
+        // Dismissing the sheet and never being allowed to open it both land
+        // here, and they are not the same thing to tell someone.
+        var blocked = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+        return { outcome: blocked ? 'blocked' : 'cancelled' };
+      });
     }
-    var url = URL.createObjectURL(blob);
-    var link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    return Promise.resolve('downloaded');
+
+    try {
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      return Promise.resolve({ outcome: 'downloaded', where: name });
+    } catch (err) {
+      return Promise.resolve({ outcome: 'blocked' });
+    }
   }
 
   // Roughly what this device could hold, for the warning before accepting.
@@ -621,9 +658,13 @@ window.Beam = (function () {
     }, viaRelay).then(function () {
       setPhase(job, 'saving');
       return job.sink.close();
-    }).then(function (how) {
-      job.saved = how;
-      setPhase(job, 'done');
+    }).then(function (result) {
+      job.outcome = result.outcome;
+      job.where = result.where || '';
+      // "held" means every byte is here but nothing has been written anywhere
+      // yet — the transfer is done, the saving is not, and saying otherwise is
+      // how a file ends up lost.
+      setPhase(job, result.outcome === 'held' ? 'held' : 'done');
       return patchSession(job.id, { state: 'done' });
     }).then(function () {
       clearSignals(job.id);
@@ -759,6 +800,21 @@ window.Beam = (function () {
       .catch(function () {});
   }
 
+  // The Save button. Runs inside the tap, which is the whole point: iOS only
+  // lets a page hand a file to the system while one is being processed.
+  function save(id) {
+    var job = jobs[id];
+    if (!job || !job.sink || !job.sink.deliver) return Promise.resolve(null);
+    return job.sink.deliver().then(function (result) {
+      job.outcome = result.outcome;
+      job.where = result.where || '';
+      // Anything short of actually saved leaves the file here to try again.
+      setPhase(job, result.outcome === 'shared' || result.outcome === 'downloaded'
+        ? 'done' : 'held');
+      return result.outcome;
+    });
+  }
+
   function dismiss(id) {
     delete jobs[id];
     emit();
@@ -836,6 +892,7 @@ window.Beam = (function () {
     offer: offer,
     ready: ready,
     accept: accept,
+    save: save,
     cancel: cancel,
     dismiss: dismiss,
     roomFor: roomFor,

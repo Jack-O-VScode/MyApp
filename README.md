@@ -63,10 +63,16 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   other end confirms it, so a file of any size fits inside the storage quota.
 - If the direct route dies part way it drops to the relay and **carries on from
   the last chunk that landed**, rather than starting again.
-- On a desktop browser it streams straight into the file you picked, so nothing
-  is held in memory and size is bounded only by your disk. iPhone and iPad have
-  no such API, so they collect the file first and hand it over at the end — the
-  app warns before accepting something that looks too big for the device.
+- On a desktop browser it streams straight into the file you picked when you
+  accepted, so when it finishes it is already on disk and the screen names it.
+- iPhone and iPad have no such API. There the file is collected first and the
+  transfer ends at **Received — tap Save**, with a Save button that opens the
+  share sheet (Save to Files, Photos, AirDrop, anywhere). That button is not
+  decoration: iOS only lets a page hand a file to the system while a tap is
+  being processed, so it cannot be done automatically when the transfer
+  happens to finish. Until you tap it the file lives only in the open page, and
+  the screen says as much rather than claiming to have saved it.
+- The app warns before accepting something that looks too big for the device.
 
 *Leave it for later* — up to 50 MB, no one has to be present
 - Drop a file and it waits in the bucket; another device collects it whenever.

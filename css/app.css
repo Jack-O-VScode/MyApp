@@ -1398,6 +1398,11 @@ main {
   background: var(--brand-soft);
 }
 .beam-job[data-phase="failed"] { border-color: var(--danger); }
+/* Arrived but not yet kept — the one state that needs you to do something. */
+.beam-job[data-phase="held"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .beam-job-head {
   display: flex;
   flex-wrap: wrap;

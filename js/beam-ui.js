@@ -107,8 +107,21 @@ window.BeamView = (function () {
           rate(job.rate),
           remaining(job)
         ].filter(Boolean).join(' · ');
-      case 'saving': return 'Saving…';
-      case 'done': return job.role === 'send' ? 'Sent' : 'Saved';
+      case 'saving': return 'Finishing…';
+      case 'held':
+        // All here, nothing written anywhere yet — and saying so is the point.
+        return job.outcome === 'cancelled'
+          ? 'Not saved — tap Save and choose where to keep it'
+          : (job.outcome === 'blocked'
+            ? 'Your browser would not open the share sheet. Tap Save to try again.'
+            : (job.outcome === 'lost'
+              ? 'The file was let go before it could be saved. Send it again.'
+              : 'Received — tap Save to keep it, or it is lost when you close the app'));
+      case 'done':
+        if (job.role === 'send') return 'Sent';
+        if (job.outcome === 'shared') return 'Handed to the share sheet';
+        if (job.outcome === 'downloaded') return 'Saved to your downloads';
+        return job.where ? 'Saved as ' + job.where : 'Saved';
       case 'cancelled': return 'Cancelled';
       case 'failed': return job.error || 'Failed';
       default: return '';
@@ -159,12 +172,20 @@ window.BeamView = (function () {
       readyButton.textContent = 'Ready';
       actions.appendChild(readyButton);
     }
-    if (['done', 'cancelled', 'failed'].indexOf(job.phase) !== -1) {
+    if (job.phase === 'held') {
+      var saveButton = document.createElement('button');
+      saveButton.className = 'button primary small';
+      saveButton.type = 'button';
+      saveButton.dataset.save = job.id;
+      saveButton.textContent = 'Save';
+      actions.appendChild(saveButton);
+    }
+    if (['done', 'cancelled', 'failed', 'held'].indexOf(job.phase) !== -1) {
       var clear = document.createElement('button');
       clear.className = 'button small';
       clear.type = 'button';
       clear.dataset.dismiss = job.id;
-      clear.textContent = 'Clear';
+      clear.textContent = job.phase === 'held' ? 'Discard' : 'Clear';
       actions.appendChild(clear);
     } else {
       var stop = document.createElement('button');
@@ -273,6 +294,9 @@ window.BeamView = (function () {
       var button = clickEvent.target.closest('button');
       if (!button) return;
       if (button.dataset.ready) Beam.ready(button.dataset.ready);
+      // Straight through, no awaiting anything first: the browser only allows a
+      // file to be handed over while this tap is still being handled.
+      if (button.dataset.save) Beam.save(button.dataset.save);
       if (button.dataset.cancel) Beam.cancel(button.dataset.cancel);
       if (button.dataset.dismiss) Beam.dismiss(button.dataset.dismiss);
       if (button.dataset.accept) {
