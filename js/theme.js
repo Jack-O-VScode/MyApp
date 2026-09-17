@@ -24,6 +24,27 @@ window.Theme = (function () {
   ];
   var DEFAULT_TEXT_SIZE = 'normal';
 
+  // Families, not fonts: nothing is downloaded, so there is no waiting, no
+  // flash of the wrong face, and it still works with no connection at all.
+  // Each stack names what the platforms actually ship.
+  var FONTS = [
+    { id: 'system', label: 'System',
+      stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' },
+    { id: 'rounded', label: 'Rounded',
+      stack: 'ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif' },
+    { id: 'serif', label: 'Serif',
+      stack: 'ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif' },
+    { id: 'mono', label: 'Mono',
+      stack: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace' }
+  ];
+  var DEFAULT_FONT = 'system';
+
+  function fontFor(id) {
+    var found = null;
+    FONTS.forEach(function (font) { if (font.id === id) found = font; });
+    return found || FONTS[0];
+  }
+
   // Starting points, not limits: every colour stays editable afterwards. A
   // preset carrying bg2 sets the page as a gradient.
   var PRESETS = [
@@ -291,7 +312,8 @@ window.Theme = (function () {
 
   /* ---------------------------------------------------------------- apply -- */
 
-  var current = { bg: '', bg2: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE, glass: true };
+  var current = { bg: '', bg2: '', bar: '', accent: '', textSize: DEFAULT_TEXT_SIZE,
+    font: DEFAULT_FONT, glass: true };
 
   function write(root, tokens, keys) {
     keys.forEach(function (key) {
@@ -334,6 +356,11 @@ window.Theme = (function () {
     current.accent = normalise(wanted.accent);
     var size = sizeFor(wanted.textSize);
     current.textSize = size.id;
+
+    var font = fontFor(wanted.font);
+    current.font = font.id;
+    if (font.id === DEFAULT_FONT) root.style.removeProperty('--font');
+    else root.style.setProperty('--font', font.stack);
     current.glass = wanted.glass !== false;
 
     // Buttons and bars go translucent from CSS; the contrast maths above needs
@@ -388,6 +415,7 @@ window.Theme = (function () {
     bar: start.themeBar,
     accent: start.themeAccent,
     textSize: start.textSize,
+    font: start.font,
     glass: start.buttonStyle !== 'solid'
   });
 
@@ -404,6 +432,8 @@ window.Theme = (function () {
     PRESETS: PRESETS,
     TEXT_SIZES: TEXT_SIZES,
     DEFAULT_TEXT_SIZE: DEFAULT_TEXT_SIZE,
+    FONTS: FONTS,
+    DEFAULT_FONT: DEFAULT_FONT,
     apply: apply,
     normalise: normalise,
     contrast: contrast,
@@ -429,7 +459,8 @@ window.Theme = (function () {
     current: function () {
       return {
         bg: current.bg, bg2: current.bg2, bar: current.bar,
-        accent: current.accent, textSize: current.textSize, glass: current.glass
+        accent: current.accent, textSize: current.textSize,
+        font: current.font, glass: current.glass
       };
     }
   };

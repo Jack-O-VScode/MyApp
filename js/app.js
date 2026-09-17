@@ -775,6 +775,7 @@
         Theme.normalise(wanted.themeBar) === live.bar &&
         Theme.normalise(wanted.themeAccent) === live.accent &&
         (wanted.textSize || Theme.DEFAULT_TEXT_SIZE) === live.textSize &&
+        (wanted.font || Theme.DEFAULT_FONT) === live.font &&
         (wanted.buttonStyle !== 'solid') === live.glass) {
       return;
     }
@@ -784,6 +785,7 @@
       bar: wanted.themeBar,
       accent: wanted.themeAccent,
       textSize: wanted.textSize,
+      font: wanted.font,
       glass: wanted.buttonStyle !== 'solid'
     });
   }

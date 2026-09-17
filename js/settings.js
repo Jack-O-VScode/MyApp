@@ -68,6 +68,7 @@ window.SettingsView = (function () {
       bar: values.themeBar,
       accent: values.themeAccent,
       textSize: values.textSize,
+      font: values.font,
       glass: values.buttonStyle !== 'solid'
     };
   }
@@ -183,6 +184,7 @@ window.SettingsView = (function () {
   function renderTextAndTimes() {
     var values = settings();
     markSegmented(els.buttonStyle, 'style', values.buttonStyle === 'solid' ? 'solid' : 'glass');
+    markSegmented(els.font, 'font', values.font || Theme.DEFAULT_FONT);
     markSegmented(els.textSize, 'size', values.textSize || Theme.DEFAULT_TEXT_SIZE);
     markSegmented(els.clock, 'clock', values.clock || '');
   }
@@ -205,12 +207,14 @@ window.SettingsView = (function () {
     els.followNote = document.getElementById('theme-follow-note');
     els.presets = document.getElementById('theme-presets');
     els.buttonStyle = document.getElementById('button-style');
+    els.font = document.getElementById('font-choice');
     els.textSize = document.getElementById('text-size');
     els.clock = document.getElementById('clock-format');
 
     buildPresets();
     buildSegmented(els.bgMode, BG_MODES, 'mode');
     buildSegmented(els.buttonStyle, BUTTON_STYLES, 'style');
+    buildSegmented(els.font, Theme.FONTS, 'font');
     buildSegmented(els.textSize, Theme.TEXT_SIZES, 'size');
     buildSegmented(els.clock, CLOCKS, 'clock');
 
@@ -266,6 +270,15 @@ window.SettingsView = (function () {
       var values = Object.assign({}, settings(), { buttonStyle: button.dataset.style });
       Theme.apply(appearance(values));
       saveNow({ buttonStyle: button.dataset.style });
+      renderTextAndTimes();
+    });
+
+    els.font.addEventListener('click', function (clickEvent) {
+      var button = clickEvent.target.closest('button');
+      if (!button) return;
+      var values = Object.assign({}, settings(), { font: button.dataset.font });
+      Theme.apply(appearance(values));
+      saveNow({ font: button.dataset.font });
       renderTextAndTimes();
     });
 

@@ -12,12 +12,22 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 
 **Today** — the home screen
 - Today's events, anything due or overdue, and your most recent notes on one page.
+- **A sense of now**: a line marks where you are in the day, what has already
+  happened is dimmed, and the next thing is picked out. It keeps itself right
+  without you reloading, and stops counting while the app is in the background.
+- On a wide screen it runs in two columns rather than one long one.
 - One search box across *everything*: events, tasks and notes at once. Hits open
   straight into the right editor.
 - Add an event, task or note without leaving the screen.
 
 **Calendar**
-- Month grid with today highlighted; ‹ › to page through months, **Today** to jump back.
+- Five views — **Day**, **Week**, **Month**, **Year** and **Agenda** — with ‹ ›
+  stepping by whatever you are looking at, and **Today** to jump back. Week gives
+  each day its own column; Year lays out all twelve months and puts a dot on the
+  days something is on, so a glance shows where the year is busy. The date and
+  the arrows sit above the whole calendar, so every view can move.
+- Today is highlighted, weekends are shaded, and every event carries its colour
+  through all five views and onto the home screen.
 - **Add event** for a title, date, optional time and details. Untimed events show
   as "All day".
 - **Repeating events** — daily, weekly, monthly or yearly, with an optional end
@@ -116,6 +126,9 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   once, with an X to close. The mark of what has been seen is kept per device,
   so reading them on the PC does not rob the phone of them, and a first install
   shows nothing — there is no update to announce.
+- **Font** — System, Rounded, Serif or Mono. All four are faces the platforms
+  already ship, so nothing is downloaded, there is no flash of the wrong one,
+  and it works with no connection.
 - **Text size** — Small, Normal or Large, scaling the whole app.
 - **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,
   tasks, notes and the Timezones screen all read from the one setting.
@@ -132,6 +145,8 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   working, red when off or broken, and the word says which. The colours are
   derived against whatever bar colour is in use, so they stay both legible and
   clearly green-or-red on any of them.
+- Screens and menus fade and slide in rather than appearing all at once. A
+  device that asks for reduced motion gets none of it.
 - Works with no connection at all once it has loaded once.
 - Light and dark themes follow the system setting until you pick your own in
   **App settings**.
@@ -573,7 +588,7 @@ js/theme.js             derives the palette from the two chosen colours; runs
 js/store.js             data layer: events, tasks, notes, recurrence, search
 js/ics.js               reads .ics calendar files: folding, escapes, zones, rules
 js/format.js            clock times, in whichever format App settings asks for
-js/calendar.js          month grid, day panel, event editor
+js/calendar.js          day, week, month, year and agenda views, event editor
 js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
 js/today.js             the Today screen and cross-app search

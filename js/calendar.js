@@ -17,6 +17,7 @@ window.CalendarView = (function () {
   var occurrenceDate = '';
   var lastFocused = null;
 
+  var MODES = ['day', 'week', 'month', 'year', 'agenda'];
   var mode = 'month';
   var narrow = window.matchMedia('(max-width: 560px)');
 
@@ -92,6 +93,7 @@ window.CalendarView = (function () {
       cell.dataset.date = key;
       cell.setAttribute('role', 'gridcell');
       if (date.getMonth() !== month) cell.classList.add('is-outside');
+      if (date.getDay() === 0 || date.getDay() === 6) cell.classList.add('is-weekend');
       if (key === today) cell.classList.add('is-today');
       if (key === selectedDate) {
         cell.classList.add('is-selected');
@@ -151,7 +153,162 @@ window.CalendarView = (function () {
     }
 
     els.grid.appendChild(fragment);
-    els.monthLabel.textContent = formatMonth(viewMonth);
+  }
+
+  // Sunday of the week a date falls in.
+  function weekStart(key) {
+    return Store.shiftKey(key, -Store.fromKey(key).getDay());
+  }
+
+  // What is on each day of a range, gathered in one pass.
+  function gather(firstKey, lastKey) {
+    var events = {};
+    Store.eventsInRange(firstKey, lastKey).forEach(function (item) {
+      (events[item.date] = events[item.date] || []).push(item);
+    });
+    var tasks = {};
+    Store.allTasks({ openOnly: true }).forEach(function (task) {
+      if (task.due >= firstKey && task.due <= lastKey) {
+        (tasks[task.due] = tasks[task.due] || []).push(task);
+      }
+    });
+    return { events: events, tasks: tasks };
+  }
+
+  // A week as seven columns, each the day's own little list. Not an hour grid:
+  // an hour grid spends most of its height on the hours nobody has anything in.
+  function renderWeek() {
+    var start = weekStart(selectedDate);
+    var end = Store.shiftKey(start, 6);
+    var found = gather(start, end);
+    var today = Store.todayKey();
+
+    els.weekGrid.innerHTML = '';
+    var fragment = document.createDocumentFragment();
+
+    for (var i = 0; i < 7; i++) {
+      var key = Store.shiftKey(start, i);
+      var date = Store.fromKey(key);
+      var events = found.events[key] || [];
+      var tasks = found.tasks[key] || [];
+
+      var column = document.createElement('button');
+      column.type = 'button';
+      column.className = 'week-day';
+      column.dataset.date = key;
+      column.setAttribute('role', 'gridcell');
+      if (key === today) column.classList.add('is-today');
+      if (key === selectedDate) {
+        column.classList.add('is-selected');
+        column.setAttribute('aria-current', 'date');
+      }
+      if (date.getDay() === 0 || date.getDay() === 6) column.classList.add('is-weekend');
+
+      var head = document.createElement('span');
+      head.className = 'week-day-head';
+      var name = document.createElement('span');
+      name.textContent = WEEKDAYS[date.getDay()];
+      var number = document.createElement('span');
+      number.className = 'week-day-number';
+      number.textContent = date.getDate();
+      head.appendChild(name);
+      head.appendChild(number);
+      column.appendChild(head);
+
+      events.forEach(function (item) {
+        var chip = document.createElement('span');
+        chip.className = 'day-chip';
+        if (item.color) chip.dataset.color = item.color;
+        // The time is its own span so a narrow column can drop it: on a phone
+        // "7:0..." says nothing, where the title at least names the thing.
+        if (item.time) {
+          var when = document.createElement('span');
+          when.className = 'chip-time';
+          when.textContent = formatTime(item.time);
+          chip.appendChild(when);
+        }
+        chip.appendChild(document.createTextNode(item.title));
+        column.appendChild(chip);
+      });
+      tasks.forEach(function (task) {
+        var chip = document.createElement('span');
+        chip.className = 'day-chip is-task';
+        chip.textContent = '\u2610 ' + task.title;
+        column.appendChild(chip);
+      });
+      if (!events.length && !tasks.length) {
+        var blank = document.createElement('span');
+        blank.className = 'week-day-blank';
+        blank.textContent = '—';
+        column.appendChild(blank);
+      }
+
+      fragment.appendChild(column);
+    }
+    els.weekGrid.appendChild(fragment);
+  }
+
+  // Twelve months at a glance. Days carry a dot when something is on, which is
+  // all a year can usefully say in the space a year gets.
+  function renderYear() {
+    var year = viewMonth.getFullYear();
+    var found = gather(year + '-01-01', year + '-12-31');
+    var today = Store.todayKey();
+
+    els.yearGrid.innerHTML = '';
+    var fragment = document.createDocumentFragment();
+
+    for (var month = 0; month < 12; month++) {
+      var block = document.createElement('div');
+      block.className = 'year-month';
+
+      var title = document.createElement('button');
+      title.type = 'button';
+      title.className = 'year-month-name';
+      title.dataset.month = String(month);
+      title.textContent = new Date(year, month, 1)
+        .toLocaleDateString(undefined, { month: 'long' });
+      block.appendChild(title);
+
+      var grid = document.createElement('div');
+      grid.className = 'year-days';
+
+      WEEKDAYS.forEach(function (name) {
+        var head = document.createElement('span');
+        head.className = 'year-weekday';
+        head.textContent = name.charAt(0);
+        grid.appendChild(head);
+      });
+
+      var leading = new Date(year, month, 1).getDay();
+      for (var blankIndex = 0; blankIndex < leading; blankIndex++) {
+        grid.appendChild(document.createElement('span'));
+      }
+
+      var days = new Date(year, month + 1, 0).getDate();
+      for (var day = 1; day <= days; day++) {
+        var key = Store.toKey(new Date(year, month, day));
+        var cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'year-day';
+        cell.dataset.date = key;
+        cell.textContent = day;
+        if (key === today) cell.classList.add('is-today');
+        var busyEvents = (found.events[key] || []).length;
+        var busyTasks = (found.tasks[key] || []).length;
+        if (busyEvents || busyTasks) {
+          cell.classList.add('is-busy');
+          cell.setAttribute('aria-label', day + ': ' +
+            [busyEvents ? busyEvents + ' events' : '', busyTasks ? busyTasks + ' tasks' : '']
+              .filter(Boolean).join(', '));
+        }
+        grid.appendChild(cell);
+      }
+
+      block.appendChild(grid);
+      fragment.appendChild(block);
+    }
+    els.yearGrid.appendChild(fragment);
   }
 
   function renderDayPanel() {
@@ -288,19 +445,83 @@ window.CalendarView = (function () {
     });
   }
 
+  // A span of days has to read naturally whatever order the locale puts the
+  // fields in, so this is built from the parts rather than glued together:
+  // "13 – 19 September 2026" here, "September 13 – 19, 2026" in the US.
+  function spanLabel(start, end) {
+    var full = { day: 'numeric', month: 'long', year: 'numeric' };
+    var sameYear = start.getFullYear() === end.getFullYear();
+
+    if (sameYear && start.getMonth() === end.getMonth()) {
+      // Only the day differs, so the first day goes in front of the last one
+      // wherever in the string the locale happens to have put it.
+      var first = start.toLocaleDateString(undefined, { day: 'numeric' });
+      return new Intl.DateTimeFormat(undefined, full).formatToParts(end)
+        .map(function (part) {
+          return part.type === 'day' ? first + ' – ' + part.value : part.value;
+        }).join('');
+    }
+
+    // Crossing a month, the year is only worth saying once unless it changes too.
+    return start.toLocaleDateString(undefined, sameYear ? { day: 'numeric', month: 'long' } : full) +
+      ' – ' + end.toLocaleDateString(undefined, full);
+  }
+
+  // What the bar over the grid says, which is different for every mode.
+  function rangeLabel() {
+    if (mode === 'day') return formatDayLabel(selectedDate);
+    if (mode === 'year') return String(viewMonth.getFullYear());
+    if (mode === 'week') {
+      return spanLabel(Store.fromKey(weekStart(selectedDate)),
+        Store.fromKey(Store.shiftKey(weekStart(selectedDate), 6)));
+    }
+    return formatMonth(viewMonth);
+  }
+
+  // Back and forward move by whatever the mode is showing.
+  function step(direction) {
+    if (mode === 'day') selectedDate = Store.shiftKey(selectedDate, direction);
+    else if (mode === 'week') selectedDate = Store.shiftKey(selectedDate, direction * 7);
+    else if (mode === 'year') {
+      viewMonth = new Date(viewMonth.getFullYear() + direction, viewMonth.getMonth(), 1);
+    } else {
+      viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + direction, 1);
+    }
+    // Day and week move the selection, so the month has to follow it.
+    if (mode === 'day' || mode === 'week') {
+      var moved = Store.fromKey(selectedDate);
+      viewMonth = new Date(moved.getFullYear(), moved.getMonth(), 1);
+    }
+    render();
+  }
+
   function render() {
     if (mode === 'agenda') {
       renderAgenda();
       return;
     }
-    renderGrid();
-    renderDayPanel();
+    if (mode === 'week') renderWeek();
+    else if (mode === 'year') renderYear();
+    else if (mode === 'month') renderGrid();
+
+    els.monthLabel.textContent = rangeLabel();
+    if (mode !== 'year') renderDayPanel();
   }
 
   function setMode(next) {
-    mode = next === 'agenda' ? 'agenda' : 'month';
+    mode = MODES.indexOf(next) === -1 ? 'month' : next;
+
     els.agenda.hidden = mode !== 'agenda';
     els.monthLayout.hidden = mode === 'agenda';
+    els.monthLayout.dataset.mode = mode;
+
+    // One card holds whichever grid the mode wants; the day panel comes along
+    // for every mode that is about a day or a handful of them.
+    els.grid.hidden = mode !== 'month';
+    els.weekGrid.hidden = mode !== 'week';
+    els.yearGrid.hidden = mode !== 'year';
+    els.weekdays.hidden = mode !== 'month';
+
     Array.prototype.forEach.call(els.modes.querySelectorAll('[data-mode]'), function (chip) {
       chip.classList.toggle('is-on', chip.dataset.mode === mode);
     });
@@ -464,7 +685,9 @@ window.CalendarView = (function () {
       agenda: document.getElementById('agenda'),
       agendaBody: document.getElementById('agenda-body'),
       monthLayout: document.getElementById('month-layout'),
-      modes: document.querySelector('#view-calendar .task-filters')
+      weekGrid: document.getElementById('week-grid'),
+      yearGrid: document.getElementById('year-grid'),
+      modes: document.getElementById('calendar-modes')
     };
 
     selectedDate = Store.todayKey();
@@ -477,16 +700,34 @@ window.CalendarView = (function () {
     if (narrow.addEventListener) narrow.addEventListener('change', renderDayPanel);
     else if (narrow.addListener) narrow.addListener(renderDayPanel);
 
-    document.getElementById('prev-month').addEventListener('click', function () {
-      viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
-      render();
-    });
-    document.getElementById('next-month').addEventListener('click', function () {
-      viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
-      render();
-    });
+    document.getElementById('prev-month').addEventListener('click', function () { step(-1); });
+    document.getElementById('next-month').addEventListener('click', function () { step(1); });
     document.getElementById('add-event').addEventListener('click', function () {
       openModal(null, selectedDate);
+    });
+
+    els.weekGrid.addEventListener('click', function (clickEvent) {
+      var column = clickEvent.target.closest('.week-day');
+      if (!column) return;
+      selectedDate = column.dataset.date;
+      render();
+    });
+
+    els.yearGrid.addEventListener('click', function (clickEvent) {
+      var name = clickEvent.target.closest('.year-month-name');
+      if (name) {
+        // A month's name is a way into that month.
+        viewMonth = new Date(viewMonth.getFullYear(), Number(name.dataset.month), 1);
+        selectedDate = Store.toKey(viewMonth);
+        setMode('month');
+        return;
+      }
+      var cell = clickEvent.target.closest('.year-day');
+      if (!cell) return;
+      selectedDate = cell.dataset.date;
+      var picked = Store.fromKey(selectedDate);
+      viewMonth = new Date(picked.getFullYear(), picked.getMonth(), 1);
+      setMode('day');
     });
 
     els.grid.addEventListener('click', function (clickEvent) {

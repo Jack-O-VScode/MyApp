@@ -14,18 +14,43 @@ window.TodayView = (function () {
 
   function renderDate() {
     var today = new Date();
-    els.date.textContent = today.toLocaleDateString(undefined, {
-      weekday: 'long', day: 'numeric', month: 'long'
-    });
+    els.dayNumber.textContent = String(today.getDate());
+    // Assembled rather than asked for in one go: a locale is free to order the
+    // fields how it likes, and "September 2026 Thursday" is what that gets you.
+    els.date.textContent = today.toLocaleDateString(undefined, { weekday: 'long' }) +
+      ', ' + today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+    var events = Store.eventsOn(Store.todayKey()).length;
+    var due = Store.tasksDue(Store.todayKey()).length;
+    var parts = [];
+    if (events) parts.push(events + (events === 1 ? ' event' : ' events'));
+    if (due) parts.push(due + (due === 1 ? ' task due' : ' tasks due'));
+    els.summary.textContent = parts.length ? parts.join(' · ') : 'Nothing on';
   }
 
-  function eventRow(item) {
+  /* ------------------------------------------------------------------ now -- */
+
+  // Minutes since midnight, which is all the comparing below needs.
+  function minutesNow() {
+    var at = new Date();
+    return at.getHours() * 60 + at.getMinutes();
+  }
+
+  function minutesOf(time) {
+    var parts = String(time || '').split(':');
+    if (parts.length !== 2) return -1;
+    return Number(parts[0]) * 60 + Number(parts[1]);
+  }
+
+  function eventRow(item, state) {
     var row = document.createElement('li');
     var button = document.createElement('button');
     button.type = 'button';
-    button.className = 'event-item';
+    button.className = 'event-item' + (state ? ' is-' + state : '');
     button.dataset.event = item.id;
     button.dataset.date = item.date;
+    // The colour you gave it, which until now only showed on the Calendar.
+    if (item.color) button.dataset.color = item.color;
 
     var time = document.createElement('span');
     time.className = 'event-time';
@@ -37,6 +62,13 @@ window.TodayView = (function () {
     title.className = 'event-title';
     title.textContent = item.title;
     body.appendChild(title);
+    if (state === 'next') {
+      var badge = document.createElement('span');
+      badge.className = 'next-mark';
+      badge.textContent = 'Next';
+      title.appendChild(document.createTextNode(' '));
+      title.appendChild(badge);
+    }
     if (item.repeating) {
       var repeat = document.createElement('span');
       repeat.className = 'repeat-mark';
@@ -67,9 +99,63 @@ window.TodayView = (function () {
       els.events.appendChild(empty);
       return;
     }
+
+    var now = minutesNow();
+    // The first timed event still to come. Untimed ones sit at the top of the
+    // day and are neither past nor next — they have no time to be either.
+    var nextIndex = -1;
+    events.forEach(function (item, index) {
+      var at = minutesOf(item.time);
+      if (nextIndex === -1 && at >= 0 && at >= now) nextIndex = index;
+    });
+
     var fragment = document.createDocumentFragment();
-    events.forEach(function (item) { fragment.appendChild(eventRow(item)); });
+    var drawnLine = false;
+    events.forEach(function (item, index) {
+      var at = minutesOf(item.time);
+      var state = '';
+      if (at >= 0) state = index === nextIndex ? 'next' : (at < now ? 'past' : '');
+
+      // One line, where the day is up to — between what has gone and what has
+      // not. Only worth drawing if there is something on each side of it.
+      if (!drawnLine && index === nextIndex && index > 0) {
+        drawnLine = true;
+        fragment.appendChild(nowLine());
+      }
+      fragment.appendChild(eventRow(item, state));
+    });
+    // Everything today has already happened: the line belongs at the end.
+    if (!drawnLine && nextIndex === -1) fragment.appendChild(nowLine());
+
     els.events.appendChild(fragment);
+  }
+
+  // What counts as past and next changes on its own, so the screen has to as
+  // well. One timer, only while Today is the screen you are looking at.
+  var ticker = null;
+  var lastMinute = -1;
+
+  function watchTheClock() {
+    if (ticker) return;
+    lastMinute = minutesNow();
+    ticker = setInterval(function () {
+      var view = document.getElementById('view-today');
+      if (!view || view.hidden || document.hidden) return;
+      var minute = minutesNow();
+      if (minute === lastMinute) return;
+      lastMinute = minute;
+      renderEvents();
+      renderDate();
+    }, 15000);
+  }
+
+  function nowLine() {
+    var row = document.createElement('li');
+    row.className = 'now-line';
+    var label = document.createElement('span');
+    label.textContent = Fmt.clock(new Date());
+    row.appendChild(label);
+    return row;
   }
 
   function renderTasks() {
@@ -202,6 +288,7 @@ window.TodayView = (function () {
     renderEvents();
     renderTasks();
     renderNotes();
+    watchTheClock();
   }
 
   /* ------------------------------------------------------------------ init -- */
@@ -223,9 +310,11 @@ window.TodayView = (function () {
       view: document.getElementById('view-today'),
       body: document.getElementById('today-body'),
       date: document.getElementById('today-date'),
+      dayNumber: document.getElementById('today-day'),
+      summary: document.getElementById('today-summary'),
       events: document.getElementById('today-events'),
       tasks: document.getElementById('today-tasks'),
-      tasksHead: document.querySelector('#view-today .today-card:nth-of-type(2) h2'),
+      tasksHead: document.querySelector('#today-tasks').closest('.today-card').querySelector('h2'),
       notes: document.getElementById('today-notes'),
       search: document.getElementById('global-search'),
       results: document.getElementById('search-results')

@@ -9,6 +9,21 @@
 */
 window.CHANGELOG = [
   {
+    version: 24, date: '2026-09-17', title: 'A calendar you can look at',
+    changes: [
+      { kind: 'new', text: 'The calendar switches between Day, Week, Month, Year and Agenda. Week gives every day its own column, and Year lays out all twelve months with a dot on the days something is on.' },
+      { kind: 'new', text: 'Back and forward now step by whatever you are looking at: one day, one week, one month or a whole year.' },
+      { kind: 'new', text: 'App settings can change the font: System, Rounded, Serif or Mono.' },
+      { kind: 'new', text: 'Today knows the time. A line marks where you are in the day, what has already happened is dimmed, and the next thing is picked out.' },
+      { kind: 'better', text: 'On a wide screen Today runs in two columns instead of one long one.' },
+      { kind: 'better', text: 'Event colours now show on the home screen and across every calendar view, not just in the editor.' },
+      { kind: 'better', text: 'Things fade and slide in rather than appearing all at once — and hold still if your device asks for less motion.' },
+      { kind: 'fixed', text: 'The date navigation sat inside the month grid, so Day view had no way to move between days. It now sits above the whole calendar, where every view can reach it.' },
+      { kind: 'fixed', text: 'A week label read “13 – September 19, 2026”. It now reads properly, in whatever order your language puts the day, month and year.' },
+      { kind: 'fixed', text: 'Week view on a phone showed empty columns. It shows what is on each day again.' }
+    ]
+  },
+  {
     version: 23, date: '2026-09-17', title: 'Patch notes',
     changes: [
       { kind: 'new', text: 'App settings shows what changed in each build, and every device shows the notes once, the first time it runs a new one.' }

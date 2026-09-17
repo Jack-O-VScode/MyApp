@@ -116,39 +116,65 @@
     <div id="search-results" class="search-results" hidden></div>
 
     <div id="today-body">
-      <p id="today-date" class="today-date"></p>
-
-      <section class="card today-card">
-        <div class="card-head">
-          <h2>Today&rsquo;s schedule</h2>
-          <button class="button small" type="button" data-add="event">Add event</button>
+      <header class="today-head">
+        <span id="today-day" class="today-day"></span>
+        <div class="today-head-text">
+          <p id="today-date" class="today-date"></p>
+          <p id="today-summary" class="today-summary"></p>
         </div>
-        <ul id="today-events" class="event-list"></ul>
-      </section>
+      </header>
 
-      <section class="card today-card">
-        <div class="card-head">
-          <h2>Tasks</h2>
-          <button class="button small" type="button" data-add="task">Add task</button>
+      <div class="today-columns">
+        <div class="today-column">
+          <section class="card today-card">
+            <div class="card-head">
+              <h2>Today&rsquo;s schedule</h2>
+              <button class="button small" type="button" data-add="event">Add event</button>
+            </div>
+            <ul id="today-events" class="event-list"></ul>
+          </section>
         </div>
-        <ul id="today-tasks" class="task-list"></ul>
-      </section>
 
-      <section class="card today-card">
-        <div class="card-head">
-          <h2>Recent notes</h2>
-          <button class="button small" type="button" data-add="note">New note</button>
+        <div class="today-column">
+          <section class="card today-card">
+            <div class="card-head">
+              <h2>Tasks</h2>
+              <button class="button small" type="button" data-add="task">Add task</button>
+            </div>
+            <ul id="today-tasks" class="task-list"></ul>
+          </section>
+
+          <section class="card today-card">
+            <div class="card-head">
+              <h2>Recent notes</h2>
+              <button class="button small" type="button" data-add="note">New note</button>
+            </div>
+            <div id="today-notes" class="note-strip"></div>
+          </section>
         </div>
-        <div id="today-notes" class="note-strip"></div>
-      </section>
+      </div>
     </div>
   </section>
 
   <!-- ------------------------------- Calendar ------------------------------- -->
   <section id="view-calendar" class="view" aria-label="Calendar" hidden>
-    <div class="task-filters" role="group" aria-label="Calendar layout">
-      <button class="chip is-on" type="button" data-mode="month">Month</button>
-      <button class="chip" type="button" data-mode="agenda">Agenda</button>
+    <div class="calendar-bar">
+      <div class="month-bar">
+        <button id="prev-month" class="icon-button small" type="button" aria-label="Previous">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
+        </button>
+        <h2 id="month-label" aria-live="polite">&nbsp;</h2>
+        <button id="next-month" class="icon-button small" type="button" aria-label="Next">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div id="calendar-modes" class="task-filters" role="group" aria-label="Calendar layout">
+        <button class="chip" type="button" data-mode="day">Day</button>
+        <button class="chip" type="button" data-mode="week">Week</button>
+        <button class="chip is-on" type="button" data-mode="month">Month</button>
+        <button class="chip" type="button" data-mode="year">Year</button>
+        <button class="chip" type="button" data-mode="agenda">Agenda</button>
+      </div>
     </div>
 
     <div id="agenda" class="card today-card" hidden>
@@ -161,17 +187,10 @@
 
     <div class="calendar-layout" id="month-layout">
       <div class="card calendar-card">
-        <div class="month-bar">
-          <button id="prev-month" class="icon-button small" type="button" aria-label="Previous month">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>
-          </button>
-          <h2 id="month-label" aria-live="polite">&nbsp;</h2>
-          <button id="next-month" class="icon-button small" type="button" aria-label="Next month">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
-          </button>
-        </div>
         <div id="weekday-row" class="weekday-row" aria-hidden="true"></div>
         <div id="day-grid" class="day-grid" role="grid" aria-labelledby="month-label"></div>
+        <div id="week-grid" class="week-grid" role="grid" aria-labelledby="month-label" hidden></div>
+        <div id="year-grid" class="year-grid" aria-labelledby="month-label" hidden></div>
       </div>
 
       <div class="card day-card">
@@ -375,6 +394,14 @@
           <span>Glass frosts the buttons and bars and blurs what is behind them.</span>
         </div>
         <div id="button-style" class="segmented" role="group" aria-label="Button style"></div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-row-text">
+          <strong>Font</strong>
+          <span>All of them ship with your devices, so nothing is downloaded.</span>
+        </div>
+        <div id="font-choice" class="segmented" role="group" aria-label="Font"></div>
       </div>
 
       <div class="set-row">
