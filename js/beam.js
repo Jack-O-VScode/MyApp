@@ -343,10 +343,14 @@ window.Beam = (function () {
   // while a tap is being processed. Doing it when the transfer happens to
   // finish is not a tap, so iOS refuses and the file goes nowhere. The sink
   // therefore stops at "held" and waits for the Save button.
-  function makeSink(rawName, type) {
-    var name = withExtension(rawName, type);
+  function makeSink(name, type) {
     if (typeof window.showSaveFilePicker === 'function') {
-      return window.showSaveFilePicker({ suggestedName: name }).then(function (handle) {
+      // A desktop picker only gets the reported type to go on; the bytes have
+      // not arrived yet when the location is chosen.
+      var suggested = hasExtension(name) || !EXTENSIONS[String(type || '').toLowerCase().split(';')[0]]
+        ? name
+        : name + '.' + EXTENSIONS[String(type || '').toLowerCase().split(';')[0]];
+      return window.showSaveFilePicker({ suggestedName: suggested }).then(function (handle) {
         return handle.createWritable().then(function (writable) {
           return {
             kind: 'disk',
@@ -364,18 +368,26 @@ window.Beam = (function () {
 
     var parts = [];
     var held = null;
+    var saveAs = '';
     return Promise.resolve({
       kind: 'memory',
       write: function (blob) { parts.push(blob); return Promise.resolve(); },
       close: function () {
         held = new Blob(parts, { type: type || '' });
         parts = [];
-        return Promise.resolve({ outcome: 'held' });
+        // Settle the name now, while there is time — reading the header is a
+        // promise, and the Save button cannot afford to wait on one.
+        return nameFor(name, held).then(function (settled) {
+          saveAs = settled;
+          return { outcome: 'held', where: settled };
+        });
       },
-      // Called from the Save button, so the tap is still live and iOS allows it.
+      // Called from the Save button, so the tap is still live and iOS allows
+      // it. The name was worked out when the transfer finished, so nothing is
+      // awaited here that would cost us the tap.
       deliver: function () {
         if (!held) return Promise.resolve({ outcome: 'lost' });
-        return saveBlob(held, name);
+        return saveBlob(held, saveAs || name);
       },
       abort: function () { parts = []; held = null; return Promise.resolve(); }
     });
@@ -397,19 +409,70 @@ window.Beam = (function () {
     'text/plain': 'txt', 'text/csv': 'csv', 'application/json': 'json'
   };
 
-  function withExtension(name, type) {
-    var clean = String(name || '').trim() || 'file';
-    var tail = clean.slice(clean.lastIndexOf('/') + 1);
+  // The type the sender reported is only as good as what its file picker said,
+  // and for plenty of files that is an empty string. The bytes themselves are
+  // not: every format below announces itself in its first few. This is what
+  // makes the extension right even when nothing else knows what the file is.
+  var SIGNATURES = [
+    { ext: 'pdf', at: 0, bytes: [0x25, 0x50, 0x44, 0x46] },              // %PDF
+    { ext: 'png', at: 0, bytes: [0x89, 0x50, 0x4E, 0x47] },
+    { ext: 'gif', at: 0, bytes: [0x47, 0x49, 0x46, 0x38] },              // GIF8
+    { ext: 'jpg', at: 0, bytes: [0xFF, 0xD8, 0xFF] },
+    { ext: 'zip', at: 0, bytes: [0x50, 0x4B, 0x03, 0x04] },
+    { ext: 'mkv', at: 0, bytes: [0x1A, 0x45, 0xDF, 0xA3] },              // EBML
+    { ext: 'mp3', at: 0, bytes: [0x49, 0x44, 0x33] },                    // ID3
+    { ext: 'wav', at: 8, bytes: [0x57, 0x41, 0x56, 0x45] },              // WAVE
+    { ext: 'webp', at: 8, bytes: [0x57, 0x45, 0x42, 0x50] },             // WEBP
+    // MP4 and friends carry "ftyp" at offset 4; the brand after it separates
+    // a QuickTime .mov from everything else in the family.
+    { ext: 'mp4', at: 4, bytes: [0x66, 0x74, 0x79, 0x70] }               // ftyp
+  ];
+
+  function sniff(blob) {
+    return blob.slice(0, 16).arrayBuffer().then(function (buffer) {
+      var head = new Uint8Array(buffer);
+      var found = '';
+      SIGNATURES.some(function (signature) {
+        var hit = signature.bytes.every(function (byte, index) {
+          return head[signature.at + index] === byte;
+        });
+        if (!hit) return false;
+        found = signature.ext;
+        if (signature.ext === 'mp4') {
+          var brand = String.fromCharCode(head[8], head[9], head[10], head[11]);
+          if (brand === 'qt  ') found = 'mov';
+          if (brand.slice(0, 3) === 'hei') found = 'heic';
+        }
+        return true;
+      });
+      return found;
+    }).catch(function () {
+      return '';
+    });
+  }
+
+  function hasExtension(name) {
+    var tail = String(name).slice(String(name).lastIndexOf('/') + 1);
     // Short, and with at least one letter in it: "clip.mp4" and "notes.gz" are
     // already named, "Holiday.2026" and "trim-178962" are not — a year or a
     // timestamp is no use to iOS when it decides what a file is.
-    if (/\.[A-Za-z0-9]{0,4}[A-Za-z][A-Za-z0-9]{0,4}$/.test(tail)) return clean;
-    var wanted = EXTENSIONS[String(type || '').toLowerCase().split(';')[0]];
-    return wanted ? clean + '.' + wanted : clean;
+    return /\.[A-Za-z0-9]{0,4}[A-Za-z][A-Za-z0-9]{0,4}$/.test(tail);
   }
 
-  function saveBlob(blob, rawName) {
-    var name = withExtension(rawName, blob.type);
+  // Ask the reported type first, then the bytes. Resolves to the name to use.
+  function nameFor(rawName, blob) {
+    var clean = String(rawName || '').trim() || 'file';
+    if (hasExtension(clean)) return Promise.resolve(clean);
+
+    var byType = EXTENSIONS[String(blob.type || '').toLowerCase().split(';')[0]];
+    if (byType) return Promise.resolve(clean + '.' + byType);
+
+    return sniff(blob).then(function (byBytes) {
+      return byBytes ? clean + '.' + byBytes : clean;
+    });
+  }
+
+  function saveBlob(blob, name) {
     var file = null;
     try {
       file = new File([blob], name, { type: blob.type || 'application/octet-stream' });

@@ -483,6 +483,48 @@
     }
   }
 
+  /* --------------------------------------------------------------- version -- */
+
+  var appVersion = '';
+
+  function askVersion() {
+    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
+      showVersion('not installed');
+      return;
+    }
+    var channel = new MessageChannel();
+    channel.port1.onmessage = function (event) {
+      showVersion((event.data && event.data.version) || 'unknown');
+    };
+    navigator.serviceWorker.controller.postMessage({ type: 'version' }, [channel.port2]);
+    setTimeout(function () { if (!appVersion) showVersion('unknown'); }, 2000);
+  }
+
+  function showVersion(text) {
+    appVersion = text;
+    var node = document.getElementById('app-version');
+    if (node) node.textContent = text;
+  }
+
+  // A new build installs itself and takes over; the page still in front of you
+  // is running the old one until it reloads. Rather than leaving that to be
+  // guessed at, say so and do it.
+  function watchForUpdates() {
+    if (!navigator.serviceWorker) return;
+    // The first time a worker ever takes over is an install, not an update, and
+    // reloading for it would mean every first visit bounced for no reason.
+    var hadWorker = !!navigator.serviceWorker.controller;
+    var reloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadWorker) { hadWorker = true; return; }
+      if (reloading) return;
+      reloading = true;
+      toast('Updated — reloading…');
+      setTimeout(function () { location.reload(); }, 900);
+    });
+  }
+
   /* ------------------------------------------------------- calendar import -- */
 
   var icsEls = {};
@@ -761,11 +803,20 @@
     });
 
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      watchForUpdates();
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function (err) {
+        navigator.serviceWorker.register('sw.js').then(function (registration) {
+          // Check on every launch, so a fix never sits waiting for a reload
+          // that happens to come along.
+          registration.update().catch(function () {});
+          askVersion();
+        }).catch(function (err) {
           console.warn('Offline support unavailable:', err);
+          showVersion('not installed');
         });
       });
+    } else {
+      showVersion('running from a file');
     }
   }
 

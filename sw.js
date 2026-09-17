@@ -1,6 +1,6 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v20';
+var CACHE = 'calendar-notes-v21';
 
 var SHELL = [
   './',
@@ -56,6 +56,14 @@ self.addEventListener('activate', function (event) {
       }));
     }).then(function () { return self.clients.claim(); })
   );
+});
+
+// Which build is actually serving this app. Without a way to ask, there is no
+// telling a fix that did not work from a fix that never arrived.
+self.addEventListener('message', function (event) {
+  if (!event.data || event.data.type !== 'version') return;
+  var reply = event.ports && event.ports[0];
+  if (reply) reply.postMessage({ version: CACHE });
 });
 
 self.addEventListener('fetch', function (event) {

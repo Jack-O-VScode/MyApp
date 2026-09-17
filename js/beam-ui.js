@@ -116,7 +116,8 @@ window.BeamView = (function () {
             ? 'Your browser would not open the share sheet. Tap Save to try again.'
             : (job.outcome === 'lost'
               ? 'The file was let go before it could be saved. Send it again.'
-              : 'Received — tap Save to keep it, or it is lost when you close the app'));
+              : 'Received as ' + (job.where || job.name) +
+                ' — tap Save to keep it, or it is lost when you close the app'));
       case 'done':
         if (job.role === 'send') return 'Sent';
         // Naming it matters: the extension is what lets iOS offer Save Video,

@@ -104,6 +104,9 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   actually ends up looking, over a card and over the page alike, so what is
   written on it stays legible either way. Where a browser cannot blur, or the
   system asks for reduced transparency, the solid style stands in.
+- **Version** — which build this device is actually running, read from the
+  service worker itself. When a new one takes over, the app says so and reloads,
+  rather than leaving you to guess whether a fix has arrived.
 - **Text size** — Small, Normal or Large, scaling the whole app.
 - **Clock** — follow each device, or hold all of them to 12- or 24-hour. Events,
   tasks, notes and the Timezones screen all read from the one setting.
