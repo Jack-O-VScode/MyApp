@@ -1412,6 +1412,12 @@ main {
 .beam-job-who { color: var(--text-soft); font-size: .82rem; }
 .beam-job-line { margin: 0; font-size: .86rem; }
 .beam-job[data-phase="failed"] .beam-job-line { color: var(--danger); }
+.beam-job-mark {
+  margin: 0;
+  color: var(--text-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+}
 .beam-job-actions { display: flex; gap: 8px; }
 .button.small { padding: 5px 11px; font-size: .86rem; }
 

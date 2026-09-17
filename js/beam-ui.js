@@ -159,6 +159,17 @@ window.BeamView = (function () {
     row.appendChild(head);
     row.appendChild(line);
 
+    // The same short hash of the same bytes on both devices. If they match, the
+    // file that arrived is the file that was sent, and anything still wrong with
+    // it was wrong before it left.
+    if (job.fingerprint) {
+      var mark = document.createElement('p');
+      mark.className = 'beam-job-mark';
+      mark.textContent = 'Fingerprint ' + job.fingerprint +
+        ' — should match the other device';
+      row.appendChild(mark);
+    }
+
     if (job.phase === 'sending' || job.phase === 'receiving') {
       var bar = document.createElement('div');
       bar.className = 'progress';

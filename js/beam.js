@@ -104,6 +104,8 @@ window.Beam = (function () {
       total: total,
       outcome: job.outcome || '',
       where: job.where || '',
+      fingerprint: job.fingerprint || '',
+      theirs: job.theirs || '',
       canSave: !!(job.sink && job.sink.deliver),
       progress: total ? Math.min(1, (job.bytes || 0) / total) : 0,
       rate: job.rate || 0,
@@ -287,6 +289,43 @@ window.Beam = (function () {
   }
 
   /* ------------------------------------------------------------ relay route -- */
+
+  /* ----------------------------------------------------------- fingerprint -- */
+
+  // Both ends hash the same chunks the same way, so the two fingerprints agree
+  // if and only if the bytes do. When a file arrives and something downstream
+  // will not open it, this is what separates "the transfer broke it" from "the
+  // transfer was fine" — without it there is no telling the two apart.
+  function digest(blob) {
+    if (!window.crypto || !window.crypto.subtle) return Promise.resolve('');
+    return blob.arrayBuffer()
+      .then(function (buffer) { return window.crypto.subtle.digest('SHA-256', buffer); })
+      .then(function (hash) {
+        var bytes = new Uint8Array(hash);
+        var out = '';
+        for (var i = 0; i < 4; i++) out += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+        return out;
+      })
+      .catch(function () { return ''; });
+  }
+
+  function addChunkDigest(job, blob) {
+    if (!job.digests) job.digests = [];
+    return digest(blob).then(function (hex) {
+      job.digests.push(hex);
+      return hex;
+    });
+  }
+
+  // The per-chunk digests folded into one short string, in order.
+  function fingerprintOf(job) {
+    if (!job.digests || !job.digests.length) return Promise.resolve('');
+    var joined = job.digests.join('');
+    return digest(new Blob([joined])).then(function (hex) {
+      job.fingerprint = hex;
+      return hex;
+    });
+  }
 
   function chunkKey(userId, sessionId, index) {
     return userId + '/beam/' + sessionId + '/' + index;
@@ -586,6 +625,8 @@ window.Beam = (function () {
           return viaRelay();
         });
     }, viaRelay).then(function () {
+      return fingerprintOf(job);
+    }).then(function () {
       setPhase(job, 'done');
       return patchSession(job.id, { state: 'done' });
     }).then(function () {
@@ -626,7 +667,9 @@ window.Beam = (function () {
       var from = index * CHUNK;
       var slice = file.slice(from, Math.min(from + CHUNK, file.size));
 
-      return slice.arrayBuffer().then(function (buffer) {
+      return addChunkDigest(job, slice).then(function () {
+        return slice.arrayBuffer();
+      }).then(function (buffer) {
         var offsetIn = 0;
         var pushFrames = function () {
           if (offsetIn >= buffer.byteLength) return Promise.resolve();
@@ -676,7 +719,9 @@ window.Beam = (function () {
         var from = index * CHUNK;
         var slice = file.slice(from, Math.min(from + CHUNK, file.size));
 
-        return putChunk(key, slice).then(function () {
+        return addChunkDigest(job, slice).then(function () {
+          return putChunk(key, slice);
+        }).then(function () {
           measure(job, Math.min(file.size, (index + 1) * CHUNK));
           emit();
           return patchSession(job.id, { sent: index + 1 });
@@ -750,6 +795,8 @@ window.Beam = (function () {
     }).then(function (result) {
       job.outcome = result.outcome;
       job.where = result.where || '';
+      return fingerprintOf(job).then(function () { return result; });
+    }).then(function (result) {
       // "held" means every byte is here but nothing has been written anywhere
       // yet — the transfer is done, the saving is not, and saying otherwise is
       // how a file ends up lost.
@@ -804,6 +851,8 @@ window.Beam = (function () {
         parts = [];
         var index = message.chunk;
         writing = writing.then(function () {
+          return addChunkDigest(job, blob);
+        }).then(function () {
           return job.sink.write(blob);
         }).then(function () {
           got = index + 1;

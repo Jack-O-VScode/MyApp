@@ -76,6 +76,10 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   before being handed over. iOS decides what a file is from its name as much as
   from its type, and **Save Video** will not take something it cannot name.
 - The app warns before accepting something that looks too big for the device.
+- Both ends show a short **fingerprint** of what they moved — the same hash of
+  the same chunks. Matching fingerprints mean the file that arrived is the file
+  that was sent, which is what separates a transfer problem from a problem the
+  file already had.
 
 *Leave it for later* — up to 50 MB, no one has to be present
 - Drop a file and it waits in the bucket; another device collects it whenever.
