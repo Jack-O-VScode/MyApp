@@ -9,6 +9,13 @@
 */
 window.CHANGELOG = [
   {
+    version: 27, date: '2026-10-13', title: 'Patch notes, first thing',
+    changes: [
+      { kind: 'better', text: 'After an update, these notes are the first thing you see when the app opens — every update, on every device, once. Close them with the X.' },
+      { kind: 'fixed', text: 'The notes no longer wait on the offline cache to say which build is running, so they turn up even where it is slow, blocked or switched off.' }
+    ]
+  },
+  {
     version: 26, date: '2026-10-13', title: 'Drag, type, and say what you mean',
     changes: [
       { kind: 'new', text: 'Drag events and tasks to another day in Week and Month. Day view is now a timeline: drag an event up or down to change its time, or pull its bottom edge to change how long it runs. On a phone, hold it for a moment first.' },

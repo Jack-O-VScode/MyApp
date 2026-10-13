@@ -515,11 +515,6 @@
   var SEEN_KEY = 'calendar-notes.seen-version';
   var notesEls = {};
 
-  function buildNumber(text) {
-    var match = /v(\d+)$/.exec(String(text || ''));
-    return match ? Number(match[1]) : 0;
-  }
-
   function lastSeen() {
     try {
       return Number(localStorage.getItem(SEEN_KEY)) || 0;
@@ -592,18 +587,31 @@
     openNotes(all, all.length + ' releases so far, newest first.', false);
   }
 
-  // Called whenever the version becomes known. Shows once per build, and never
-  // on a device's very first run — there is no update to tell them about.
+  // The newest release this page carries notes for. The notes ship inside the
+  // build they describe, so this is the build actually running — known the
+  // moment the page loads, with no waiting on the service worker, and still
+  // right in a browser that has none.
+  function newestRelease() {
+    return (window.CHANGELOG || []).reduce(function (best, release) {
+      return Math.max(best, Number(release.version) || 0);
+    }, 0);
+  }
+
+  // Runs as the app starts, so after an update the notes are the first thing
+  // on screen. Shows once per build, and never on a device's very first run —
+  // there is no update to tell them about.
   var consideredNotes = false;
 
   function considerNotes() {
     if (consideredNotes || !notesEls.modal) return;
-    var current = buildNumber(appVersion);
+    var current = newestRelease();
     if (!current) return;
     consideredNotes = true;
 
     var seen = lastSeen();
-    rememberSeen(current);
+    // Never wind the mark backwards: a page still running an older build in
+    // another tab must not make this one show its notes all over again.
+    if (current > seen) rememberSeen(current);
     if (!seen || current <= seen) return;
 
     var fresh = releasesSince(seen);
@@ -864,6 +872,7 @@
     setupReminders();
     setupIcsImport();
     setupNotes();
+    considerNotes();
 
     menuButton.addEventListener('click', function () {
       if (menuIsOpen()) closeMenu(true);
