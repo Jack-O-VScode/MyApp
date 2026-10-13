@@ -1,0 +1,13 @@
+{
+  "name": "calendar-notes",
+  "private": true,
+  "description": "Calendar, tasks and notes as an installable offline web app.",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node --test \"tests/*.test.js\"",
+    "check": "node tools/check.js"
+  },
+  "engines": {
+    "node": ">=21"
+  }
+}

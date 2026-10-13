@@ -73,6 +73,30 @@ window.Store = (function () {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
   }
 
+  function isTime(value) {
+    return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  }
+
+  var PRIORITIES = [0, 1, 2, 3];
+
+  // Subtasks are a short list inside the task, not records of their own: they
+  // only ever make sense next to their parent, and travel with it in sync.
+  function cleanSubtasks(list) {
+    if (!Array.isArray(list)) return [];
+    var out = [];
+    list.forEach(function (raw) {
+      if (!raw || typeof raw.title !== 'string') return;
+      var title = raw.title.trim().slice(0, 200);
+      if (!title) return;
+      out.push({
+        id: typeof raw.id === 'string' && raw.id ? raw.id : uid(),
+        title: title,
+        done: !!raw.done
+      });
+    });
+    return out.slice(0, 50);
+  }
+
   /* ------------------------------------------------------------- loading -- */
 
   function normalise(item, kind) {
@@ -85,6 +109,9 @@ window.Store = (function () {
       if (typeof item.repeat !== 'string') item.repeat = '';
       if (typeof item.repeatUntil !== 'string') item.repeatUntil = '';
       if (typeof item.color !== 'string') item.color = '';
+      // When a timed event finishes, as "HH:MM" on the same day. '' means it
+      // has no stated length, which the day timeline draws as an hour.
+      if (typeof item.endTime !== 'string') item.endTime = '';
       // Minutes before the event; -1 means "no reminder".
       if (typeof item.remind !== 'number') item.remind = -1;
       if (!Array.isArray(item.skips)) item.skips = [];
@@ -94,9 +121,17 @@ window.Store = (function () {
       if (typeof item.details !== 'string') item.details = '';
       if (typeof item.repeat !== 'string') item.repeat = '';
       if (typeof item.repeatDay !== 'number') item.repeatDay = 0;
+      // 0 none, 1 low, 2 medium, 3 high.
+      if (PRIORITIES.indexOf(item.priority) === -1) item.priority = 0;
+      item.subtasks = cleanSubtasks(item.subtasks);
+      // A clock time on the due date to be reminded at; '' for none.
+      if (!isTime(item.remindTime)) item.remindTime = '';
     } else if (kind === 'note') {
       if (typeof item.pinned !== 'boolean') item.pinned = false;
       if (!Array.isArray(item.tags)) item.tags = [];
+      // The event a note belongs to (meeting notes), and which day of it.
+      if (typeof item.eventId !== 'string') item.eventId = '';
+      if (typeof item.eventDate !== 'string') item.eventDate = '';
     }
     return item;
   }
@@ -249,6 +284,7 @@ window.Store = (function () {
       date: dateKey,
       title: master.title,
       time: master.time || '',
+      endTime: master.endTime || '',
       details: master.details || '',
       color: master.color || '',
       remind: typeof master.remind === 'number' ? master.remind : -1,
@@ -347,10 +383,13 @@ window.Store = (function () {
 
   function saveEvent(input) {
     var stamp = now();
+    var time = isTime(input.time) ? input.time : '';
     var fields = {
       title: input.title,
       date: input.date,
-      time: input.time || '',
+      time: time,
+      // An end only means something after a start.
+      endTime: time && isTime(input.endTime) && input.endTime > time ? input.endTime : '',
       details: input.details || '',
       color: COLORS.indexOf(input.color) === -1 ? '' : input.color,
       remind: REMIND_CHOICES.indexOf(Number(input.remind)) === -1 ? -1 : Number(input.remind),
@@ -406,16 +445,65 @@ window.Store = (function () {
     remove('event', id);
   }
 
+  // Drag and drop: a new day and/or clock time for an event, leaving the rest
+  // of it alone. Moving one day of a series moves only that day, the way a
+  // single standup gets dragged without dragging every other one with it.
+  function moveEvent(id, occurrenceDate, change) {
+    var master = find('event', id);
+    if (!master || !change) return null;
+
+    var date = isKey(change.date) ? change.date : (occurrenceDate || master.date);
+    var time = change.time === undefined ? master.time : (isTime(change.time) ? change.time : '');
+    var endTime = change.endTime === undefined ? master.endTime : change.endTime;
+    if (!time || !isTime(endTime) || endTime <= time) endTime = '';
+
+    if (master.repeat && occurrenceDate) {
+      if (date === occurrenceDate && time === master.time && endTime === master.endTime) return master;
+      if (master.skips.indexOf(occurrenceDate) === -1) master.skips.push(occurrenceDate);
+      touch(master);
+      var stamp = now();
+      var detached = normalise({
+        id: uid(), createdAt: stamp, updatedAt: stamp, dirty: true,
+        title: master.title, date: date, time: time, endTime: endTime,
+        details: master.details, color: master.color, remind: master.remind,
+        repeat: '', repeatUntil: '', skips: []
+      }, 'event');
+      state.events.push(detached);
+      commit();
+      return detached;
+    }
+
+    if (date === master.date && time === master.time && endTime === master.endTime) return master;
+    master.date = date;
+    master.time = time;
+    master.endTime = endTime;
+    touch(master);
+    commit();
+    return master;
+  }
+
   /* --------------------------------------------------------------- tasks -- */
 
-  function sortTasks(list) {
+  var TASK_SORTS = ['due', 'priority', 'created'];
+
+  function byDue(a, b) {
+    if (!a.due !== !b.due) return a.due ? -1 : 1;
+    if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+    return 0;
+  }
+
+  // Done work always sinks. Above it: soonest first by default, most urgent
+  // first by priority, or newest first by when it was added.
+  function sortTasks(list, by) {
     return list.sort(function (a, b) {
-      // Done work sinks; above it, dated before undated, soonest first.
       if (a.done !== b.done) return a.done ? 1 : -1;
       if (a.done) return b.updatedAt - a.updatedAt;
-      if (!a.due !== !b.due) return a.due ? -1 : 1;
-      if (a.due !== b.due) return a.due < b.due ? -1 : 1;
-      return a.createdAt - b.createdAt;
+      if (by === 'created') return b.createdAt - a.createdAt;
+      if (by === 'priority') {
+        if (a.priority !== b.priority) return b.priority - a.priority;
+        return byDue(a, b) || a.createdAt - b.createdAt;
+      }
+      return byDue(a, b) || b.priority - a.priority || a.createdAt - b.createdAt;
     });
   }
 
@@ -425,11 +513,13 @@ window.Store = (function () {
     if (options.query) {
       var needle = options.query.toLowerCase();
       list = list.filter(function (task) {
-        return (task.title + '\n' + task.details).toLowerCase().indexOf(needle) !== -1;
+        var subtasks = task.subtasks.map(function (sub) { return sub.title; }).join('\n');
+        return (task.title + '\n' + task.details + '\n' + subtasks)
+          .toLowerCase().indexOf(needle) !== -1;
       });
     }
     if (options.openOnly) list = list.filter(function (task) { return !task.done; });
-    return sortTasks(list);
+    return sortTasks(list, options.sort);
   }
 
   function tasksOn(date) {
@@ -455,6 +545,18 @@ window.Store = (function () {
       repeat: isKey(input.due) ? repeat : '',
       repeatDay: isKey(input.due) && repeat ? fromKey(input.due).getDate() : 0
     };
+    // Optional on input, so a caller that knows nothing of them (the quick-add
+    // box, an old backup) leaves an existing task's values where they were.
+    if (input.priority !== undefined) {
+      fields.priority = PRIORITIES.indexOf(Number(input.priority)) === -1 ? 0 : Number(input.priority);
+    }
+    if (input.subtasks !== undefined) fields.subtasks = cleanSubtasks(input.subtasks);
+    if (input.remindTime !== undefined) {
+      // A reminder is "at this time on the due date", so it needs a date.
+      fields.remindTime = isKey(input.due) && isTime(input.remindTime) ? input.remindTime : '';
+    } else if (!isKey(input.due)) {
+      fields.remindTime = '';
+    }
     if (input.id) {
       var task = find('task', input.id);
       if (!task) return null;
@@ -488,6 +590,8 @@ window.Store = (function () {
       }
       task.due = next;
       task.doneAt = now();
+      // Next time round, the checklist starts again.
+      task.subtasks.forEach(function (sub) { sub.done = false; });
       touch(task);
       commit();
       return { task: task, advancedTo: next };
@@ -498,6 +602,24 @@ window.Store = (function () {
     touch(task);
     commit();
     return { task: task, advancedTo: '' };
+  }
+
+  function toggleSubtask(taskId, subId) {
+    var task = find('task', taskId);
+    if (!task) return null;
+    var sub = task.subtasks.filter(function (item) { return item.id === subId; })[0];
+    if (!sub) return null;
+    sub.done = !sub.done;
+    touch(task);
+    commit();
+    return task;
+  }
+
+  function subtaskProgress(task) {
+    var total = task && task.subtasks ? task.subtasks.length : 0;
+    if (!total) return null;
+    var done = task.subtasks.filter(function (sub) { return sub.done; }).length;
+    return { done: done, total: total };
   }
 
   function deleteTask(id) {
@@ -557,15 +679,27 @@ window.Store = (function () {
     return find('note', id);
   }
 
-  function createNote() {
+  // `link` ties the new note to an event (and the day of it), for meeting notes.
+  function createNote(link) {
     var stamp = now();
     var note = normalise({
-      id: uid(), title: '', body: '', pinned: false, tags: [],
+      id: uid(), title: (link && link.title) || '', body: '', pinned: false, tags: [],
+      eventId: (link && link.eventId) || '',
+      eventDate: (link && isKey(link.eventDate)) ? link.eventDate : '',
       createdAt: stamp, updatedAt: stamp, dirty: true
     }, 'note');
     state.notes.push(note);
     commit();
     return note;
+  }
+
+  // Notes written for one event. A repeating event's notes are per day, so
+  // last week's standup notes are not this week's.
+  function notesForEvent(eventId, dateKey) {
+    return sortNotes(live(state.notes).filter(function (note) {
+      if (!eventId || note.eventId !== eventId) return false;
+      return !dateKey || !note.eventDate || note.eventDate === dateKey;
+    }));
   }
 
   function cleanTags(tags) {
@@ -591,6 +725,11 @@ window.Store = (function () {
     }
     if (typeof fields.pinned === 'boolean' && fields.pinned !== note.pinned) {
       note.pinned = fields.pinned;
+      changed = true;
+    }
+    if (typeof fields.eventId === 'string' && fields.eventId !== note.eventId) {
+      note.eventId = fields.eventId;
+      note.eventDate = fields.eventId && isKey(fields.eventDate) ? fields.eventDate : '';
       changed = true;
     }
     if (fields.tags) {
@@ -630,7 +769,8 @@ window.Store = (function () {
     textSize: 'normal',     // App settings: small | normal | large
     buttonStyle: 'glass',   // App settings: glass | solid
     font: 'system',         // App settings: system | rounded | serif | mono
-    clock: ''               // App settings: '' follows the device, else 12 or 24
+    clock: '',              // App settings: '' follows the device, else 12 or 24
+    taskSort: 'due'         // Tasks: due | priority | created
   };
 
   function getSettings() {
@@ -726,6 +866,7 @@ window.Store = (function () {
     if (kind === 'event') {
       payload = {
         title: item.title, date: item.date, time: item.time || '',
+        endTime: item.endTime || '',
         details: item.details || '', color: item.color || '',
         remind: typeof item.remind === 'number' ? item.remind : -1,
         repeat: item.repeat || '', repeatUntil: item.repeatUntil || '',
@@ -735,12 +876,15 @@ window.Store = (function () {
       payload = {
         title: item.title, due: item.due || '', details: item.details || '',
         done: !!item.done, doneAt: item.doneAt || 0,
-        repeat: item.repeat || '', repeatDay: item.repeatDay || 0
+        repeat: item.repeat || '', repeatDay: item.repeatDay || 0,
+        priority: item.priority || 0, subtasks: item.subtasks || [],
+        remindTime: item.remindTime || ''
       };
     } else {
       payload = {
         title: item.title, body: item.body,
-        pinned: !!item.pinned, tags: item.tags || []
+        pinned: !!item.pinned, tags: item.tags || [],
+        eventId: item.eventId || '', eventDate: item.eventDate || ''
       };
     }
     return {
@@ -767,6 +911,7 @@ window.Store = (function () {
       base.title = String(payload.title || '');
       base.date = String(payload.date || '');
       base.time = String(payload.time || '');
+      base.endTime = String(payload.endTime || '');
       base.details = String(payload.details || '');
       base.color = String(payload.color || '');
       base.remind = typeof payload.remind === 'number' ? payload.remind : -1;
@@ -781,11 +926,16 @@ window.Store = (function () {
       base.doneAt = Number(payload.doneAt) || 0;
       base.repeat = String(payload.repeat || '');
       base.repeatDay = Number(payload.repeatDay) || 0;
+      base.priority = Number(payload.priority) || 0;
+      base.subtasks = Array.isArray(payload.subtasks) ? payload.subtasks : [];
+      base.remindTime = String(payload.remindTime || '');
     } else {
       base.title = String(payload.title || '');
       base.body = String(payload.body || '');
       base.pinned = !!payload.pinned;
       base.tags = Array.isArray(payload.tags) ? payload.tags.slice() : [];
+      base.eventId = String(payload.eventId || '');
+      base.eventDate = String(payload.eventDate || '');
     }
     return normalise(base, record.kind);
   }
@@ -937,7 +1087,8 @@ window.Store = (function () {
       var fields = {
         title: String(item.title).slice(0, 200),
         date: item.date,
-        time: /^\d{2}:\d{2}$/.test(item.time || '') ? item.time : '',
+        time: isTime(item.time) ? item.time : '',
+        endTime: isTime(item.time) && isTime(item.endTime) && item.endTime > item.time ? item.endTime : '',
         details: String(item.details || '').slice(0, 5000),
         color: '',
         remind: -1,
@@ -1030,12 +1181,17 @@ window.Store = (function () {
     eventsInRange: eventsInRange,
     saveEvent: saveEvent,
     deleteEvent: deleteEvent,
+    moveEvent: moveEvent,
+    isTime: isTime,
     getEvent: function (id) { return find('event', id); },
     allTasks: allTasks,
     tasksOn: tasksOn,
     tasksDue: tasksDue,
     saveTask: saveTask,
     toggleTask: toggleTask,
+    toggleSubtask: toggleSubtask,
+    subtaskProgress: subtaskProgress,
+    taskSorts: function () { return TASK_SORTS.slice(); },
     deleteTask: deleteTask,
     clearDoneTasks: clearDoneTasks,
     nextDate: nextDate,
@@ -1050,6 +1206,7 @@ window.Store = (function () {
     allTags: allTags,
     getNote: getNote,
     createNote: createNote,
+    notesForEvent: notesForEvent,
     updateNote: updateNote,
     deleteNote: deleteNote,
     search: search,

@@ -55,6 +55,12 @@ window.TodayView = (function () {
     var time = document.createElement('span');
     time.className = 'event-time';
     time.textContent = formatTime(item.time);
+    if (item.time && item.endTime) {
+      var end = document.createElement('small');
+      end.className = 'event-end';
+      end.textContent = '– ' + formatTime(item.endTime);
+      time.appendChild(end);
+    }
 
     var body = document.createElement('span');
     body.className = 'event-body';
@@ -75,6 +81,13 @@ window.TodayView = (function () {
       repeat.textContent = 'repeats';
       title.appendChild(document.createTextNode(' '));
       title.appendChild(repeat);
+    }
+    if (Store.notesForEvent(item.id, item.date).length) {
+      var notes = document.createElement('span');
+      notes.className = 'repeat-mark';
+      notes.textContent = '📝 notes';
+      title.appendChild(document.createTextNode(' '));
+      title.appendChild(notes);
     }
     if (item.details) {
       var details = document.createElement('p');
@@ -199,7 +212,7 @@ window.TodayView = (function () {
       title.textContent = note.title.trim() || 'Untitled note';
       var text = document.createElement('span');
       text.className = 'note-chip-text';
-      text.textContent = note.body.trim() || 'Empty';
+      text.textContent = Markdown.plain(note.body).trim() || 'Empty';
       card.appendChild(title);
       card.appendChild(text);
       fragment.appendChild(card);
@@ -261,7 +274,7 @@ window.TodayView = (function () {
       }),
       resultGroup('Notes', hits.notes, function (note) {
         return resultRow(note.title.trim() || 'Untitled note',
-          note.body.trim().slice(0, 80), { note: note.id });
+          Markdown.plain(note.body).trim().slice(0, 80), { note: note.id });
       })
     ].filter(Boolean);
 

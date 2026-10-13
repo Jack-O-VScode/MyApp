@@ -1,6 +1,6 @@
 /* Offline support: the shell is precached, so the app opens with no network at
    all. Bump CACHE when any of the files below change. */
-var CACHE = 'calendar-notes-v25';
+var CACHE = 'calendar-notes-v26';
 
 var SHELL = [
   './',
@@ -13,6 +13,11 @@ var SHELL = [
   'js/ics.js',
   'js/format.js',
   'js/zones.js',
+  'js/quickparse.js',
+  'js/markdown.js',
+  'js/timeline.js',
+  'js/drag.js',
+  'js/attachments.js',
   'js/clocks.js',
   'js/calendar.js',
   'js/tasks.js',
@@ -52,8 +57,10 @@ self.addEventListener('install', function (event) {
 self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
+      // Only old builds of the shell. Pictures attached to notes live in a
+      // cache of their own and have to survive an update.
       return Promise.all(keys.map(function (key) {
-        return key === CACHE ? null : caches.delete(key);
+        return key === CACHE || key.indexOf('calendar-notes-') !== 0 ? null : caches.delete(key);
       }));
     }).then(function () { return self.clients.claim(); })
   );

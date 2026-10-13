@@ -264,6 +264,9 @@ window.ICS = (function () {
         if (endKey > event.date) {
           report.spanning++;
           details.unshift('Runs until ' + endKey + '.');
+        } else if (!start.allDay) {
+          // Same day: that is exactly what an event's end time is for.
+          event.endTime = timeOf(end.at);
         }
       }
     }

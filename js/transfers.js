@@ -7,16 +7,22 @@
    The bucket itself is the list — there is no metadata table to drift out of
    step with it. Each object is keyed
 
-       <user id>/<timestamp>-<random>__<file name>
+       <user id>/<timestamp>-<random>-e<expiry>__<file name>
 
    which is what lets row-level security scope a folder to its owner, and what
-   carries the original file name and age without a second lookup.
+   carries the original file name, its age and when it goes without a second
+   lookup. <expiry> is the instant in milliseconds, or "never". Files sent
+   before expiry was choosable have no -e part and keep their 24 hours.
 */
 window.TransfersView = (function () {
   'use strict';
 
   var BUCKET = 'transfers';
-  var MAX_AGE = 24 * 60 * 60 * 1000;
+  var MAX_AGE = 24 * 60 * 60 * 1000;     // files from before expiry was choosable
+  var EXPIRY_KEY = 'calendar-notes.transfer-expiry';
+  var UNIT_MS = { minute: 60000, hour: 3600000, day: 86400000 };
+  var UNIT_MAX = { minute: 525600, hour: 87600, day: 3650 };   // ten years, whichever way
+  var expiry = { amount: 24, unit: 'hour', never: false };
   var SIZE_WARNING = 50 * 1024 * 1024;   // the default per-file cap on a new bucket
   var POLL = 20000;
 
@@ -48,13 +54,87 @@ window.TransfersView = (function () {
     return hours + (hours === 1 ? ' hour ago' : ' hours ago');
   }
 
-  function expiresIn(stamp) {
-    var left = MAX_AGE - (Date.now() - stamp);
+  function plural(count, word) {
+    return count + ' ' + word + (count === 1 ? '' : 's');
+  }
+
+  // `expiresAt` is null for a file that never expires.
+  function expiresIn(expiresAt, now) {
+    if (expiresAt === null) return 'never expires';
+    var left = expiresAt - (now || Date.now());
     if (left <= 0) return 'expiring';
-    var hours = Math.ceil(left / 3600000);
-    if (hours > 1) return 'expires in ' + hours + ' hours';
-    if (left > 3600000) return 'expires in 1 hour';
-    return 'expires in ' + Math.max(1, Math.round(left / 60000)) + ' min';
+    if (left < 3600000) return 'expires in ' + Math.max(1, Math.ceil(left / 60000)) + ' min';
+    if (left < 48 * 3600000) return 'expires in ' + plural(Math.ceil(left / 3600000), 'hour');
+    return 'expires in ' + plural(Math.ceil(left / 86400000), 'day');
+  }
+
+  /* ---------------------------------------------------------------- expiry -- */
+
+  // How long a typed amount and unit come to, or an error to show instead.
+  function lifetime(amountText, unit) {
+    var text = String(amountText).trim();
+    if (!/^\d+$/.test(text) || Number(text) < 1) {
+      return { error: 'Type a whole number, 1 or more, for how long to keep it.' };
+    }
+    if (!UNIT_MS[unit]) return { error: 'Pick minutes, hours or days.' };
+    var amount = Number(text);
+    if (amount > UNIT_MAX[unit]) {
+      return { error: 'That is more than ten years — use Never expire instead.' };
+    }
+    return { ms: amount * UNIT_MS[unit], amount: amount };
+  }
+
+  function loadExpiry() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(EXPIRY_KEY) || 'null');
+      if (saved && UNIT_MS[saved.unit]) {
+        expiry = { amount: String(saved.amount), unit: saved.unit, never: !!saved.never };
+      }
+    } catch (err) {
+      // A device with no storage just starts from a day each time.
+    }
+  }
+
+  function saveExpiry() {
+    try {
+      localStorage.setItem(EXPIRY_KEY, JSON.stringify(expiry));
+    } catch (err) {
+      // Not worth failing a transfer over.
+    }
+  }
+
+  function renderExpiry() {
+    els.expiryAmount.value = expiry.amount;
+    els.expiryAmount.disabled = expiry.never;
+    Array.prototype.forEach.call(els.expiryUnit.querySelectorAll('[data-unit]'), function (button) {
+      var on = button.dataset.unit === expiry.unit;
+      button.classList.toggle('is-on', on && !expiry.never);
+      button.setAttribute('aria-checked', on ? 'true' : 'false');
+      button.disabled = expiry.never;
+    });
+    els.expiryRow.classList.toggle('is-muted', expiry.never);
+    els.expiryNever.classList.toggle('is-on', expiry.never);
+    els.expiryNever.setAttribute('aria-pressed', expiry.never ? 'true' : 'false');
+    els.expiryNever.textContent = expiry.never ? 'Never expire — on' : 'Never expire';
+    summariseExpiry();
+  }
+
+  function summariseExpiry() {
+    var summary = els.expirySummary;
+    summary.classList.remove('is-error');
+    if (expiry.never) {
+      summary.textContent = 'What you send now stays until you remove it. It counts against your ' +
+        'storage the whole time, so tidy up now and then.';
+      return;
+    }
+    var span = lifetime(els.expiryAmount.value, expiry.unit);
+    if (span.error) {
+      summary.textContent = span.error;
+      summary.classList.add('is-error');
+      return;
+    }
+    summary.textContent = 'What you send now is deleted ' + plural(span.amount, expiry.unit) +
+      ' after it is sent, picked up or not.';
   }
 
   function safeName(name) {
@@ -65,15 +145,27 @@ window.TransfersView = (function () {
     return key.split('/').map(encodeURIComponent).join('/');
   }
 
-  // "<stamp>-<random>__<name>" back into something displayable.
+  // "<stamp>-<random>-e<expiry>__<name>" back into something displayable.
+  // `expiresAt` is a time, or null for never; 0 means "work it out from the
+  // stamp", for the older keys that do not say.
   function parseKey(fileName) {
     var split = fileName.indexOf('__');
-    if (split === -1) return { name: fileName, stamp: 0 };
-    var prefix = fileName.slice(0, split);
+    if (split === -1) return { name: fileName, stamp: 0, expiresAt: 0 };
+    var parts = fileName.slice(0, split).split('-');
+    var stamp = Number(parts[0]) || 0;
+    var expiresAt = stamp ? stamp + MAX_AGE : 0;
+    var mark = parts[2] || '';
+    if (mark === 'enever') expiresAt = null;
+    else if (/^e\d+$/.test(mark)) expiresAt = Number(mark.slice(1));
     return {
       name: fileName.slice(split + 2) || fileName,
-      stamp: Number(prefix.split('-')[0]) || 0
+      stamp: stamp,
+      expiresAt: expiresAt
     };
+  }
+
+  function expiryMark(expiresAt) {
+    return expiresAt === null ? 'enever' : 'e' + expiresAt;
   }
 
   function friendlyError(err) {
@@ -134,12 +226,16 @@ window.TransfersView = (function () {
           sortBy: { column: 'created_at', order: 'desc' }
         })
       }).then(function (rows) {
-        return (rows || []).filter(function (row) { return row && row.name; }).map(function (row) {
+        // Folders come back as rows with no id: the device-to-device relay and
+        // pictures attached to notes live in them, and are not files waiting.
+        return (rows || []).filter(function (row) { return row && row.name && row.id; }).map(function (row) {
           var parsed = parseKey(row.name);
+          var stamp = parsed.stamp || Date.parse(row.created_at) || Date.now();
           return {
             key: auth.userId + '/' + row.name,
             name: parsed.name,
-            stamp: parsed.stamp || Date.parse(row.created_at) || Date.now(),
+            stamp: stamp,
+            expiresAt: parsed.expiresAt === 0 ? stamp + MAX_AGE : parsed.expiresAt,
             size: (row.metadata && row.metadata.size) || 0
           };
         });
@@ -148,10 +244,11 @@ window.TransfersView = (function () {
   }
 
   // XHR rather than fetch: only XHR reports upload progress.
-  function upload(file, onProgress) {
+  function upload(file, expiresAt, onProgress) {
     return Sync.authorized().then(function (auth) {
       var key = auth.userId + '/' + Date.now() + '-' +
-        Math.random().toString(36).slice(2, 7) + '__' + safeName(file.name);
+        Math.random().toString(36).slice(2, 7) + '-' + expiryMark(expiresAt) +
+        '__' + safeName(file.name);
 
       // multipart/form-data, matching what the official Supabase client sends
       // from a browser — the shape their storage API is best tested against.
@@ -281,7 +378,7 @@ window.TransfersView = (function () {
       name.textContent = item.name;
       var meta = document.createElement('span');
       meta.className = 'transfer-meta';
-      meta.textContent = [formatSize(item.size), formatAge(item.stamp), expiresIn(item.stamp)]
+      meta.textContent = [formatSize(item.size), formatAge(item.stamp), expiresIn(item.expiresAt)]
         .filter(Boolean).join(' · ');
       body.appendChild(name);
       body.appendChild(meta);
@@ -333,8 +430,9 @@ window.TransfersView = (function () {
     return list().then(function (rows) {
       // A courier that keeps things is a filing cabinet. Anything past its day
       // goes, collected or not.
-      var stale = rows.filter(function (row) { return Date.now() - row.stamp > MAX_AGE; });
-      items = rows.filter(function (row) { return Date.now() - row.stamp <= MAX_AGE; });
+      var now = Date.now();
+      var stale = rows.filter(function (row) { return row.expiresAt !== null && now > row.expiresAt; });
+      items = rows.filter(function (row) { return row.expiresAt === null || now <= row.expiresAt; });
       renderList();
       return Promise.all(stale.map(function (row) {
         return destroy(row.key).catch(function () {});
@@ -359,6 +457,17 @@ window.TransfersView = (function () {
         'Storage → Buckets, or send something smaller.', true);
       return;
     }
+    // Worked out once, as the files go: "an hour" means an hour from now.
+    var expiresAt = null;
+    if (!expiry.never) {
+      var span = lifetime(els.expiryAmount.value, expiry.unit);
+      if (span.error) {
+        setMessage(span.error, true);
+        els.expiryAmount.focus();
+        return;
+      }
+      expiresAt = Date.now() + span.ms;
+    }
     setMessage('');
 
     Array.prototype.forEach.call(files, function (file) {
@@ -366,7 +475,7 @@ window.TransfersView = (function () {
       uploads.push(job);
       renderUploads();
 
-      upload(file, function (fraction) {
+      upload(file, expiresAt, function (fraction) {
         job.progress = fraction;
         renderUploads();
       }).then(function () {
@@ -443,8 +552,33 @@ window.TransfersView = (function () {
       input: document.getElementById('transfer-file'),
       uploads: document.getElementById('transfer-uploads'),
       list: document.getElementById('transfer-list'),
-      message: document.getElementById('transfer-message')
+      message: document.getElementById('transfer-message'),
+      expiryAmount: document.getElementById('expiry-amount'),
+      expiryUnit: document.getElementById('expiry-unit'),
+      expiryRow: document.querySelector('#view-transfer .expiry-row'),
+      expiryNever: document.getElementById('expiry-never'),
+      expirySummary: document.getElementById('expiry-summary')
     };
+
+    loadExpiry();
+    renderExpiry();
+    els.expiryAmount.addEventListener('input', function () {
+      expiry.amount = els.expiryAmount.value;
+      saveExpiry();
+      summariseExpiry();
+    });
+    els.expiryUnit.addEventListener('click', function (clickEvent) {
+      var button = clickEvent.target.closest('[data-unit]');
+      if (!button || expiry.never) return;
+      expiry.unit = button.dataset.unit;
+      saveExpiry();
+      renderExpiry();
+    });
+    els.expiryNever.addEventListener('click', function () {
+      expiry.never = !expiry.never;
+      saveExpiry();
+      renderExpiry();
+    });
 
     els.input.addEventListener('change', function () {
       send(this.files);
@@ -487,6 +621,10 @@ window.TransfersView = (function () {
     render: function () {
       render();
       if (Sync.getStatus().signedIn) refresh(true);
-    }
+    },
+    // Exposed for the tests.
+    _parseKey: parseKey,
+    _lifetime: lifetime,
+    _expiresIn: expiresIn
   };
 })();

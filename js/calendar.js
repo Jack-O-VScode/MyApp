@@ -41,6 +41,26 @@ window.CalendarView = (function () {
     return Fmt.time(time);
   }
 
+  // "9:00 AM" stacked over "– 10:30 AM", for the lists that have the room.
+  function fillTime(node, item) {
+    node.textContent = formatTime(item.time);
+    if (item.time && item.endTime) {
+      var end = document.createElement('small');
+      end.className = 'event-end';
+      end.textContent = '– ' + formatTime(item.endTime);
+      node.appendChild(end);
+    }
+  }
+
+  // A small mark on an event that has notes written for it (that day of it).
+  function noteMark(item) {
+    if (!Store.notesForEvent(item.id, item.date).length) return null;
+    var mark = document.createElement('span');
+    mark.className = 'repeat-mark';
+    mark.textContent = '📝 notes';
+    return mark;
+  }
+
   /* ------------------------------------------------------------ rendering -- */
 
   function renderWeekdays() {
@@ -112,14 +132,18 @@ window.CalendarView = (function () {
 
       events.slice(0, MAX_CHIPS).forEach(function (item) {
         var chip = document.createElement('span');
-        chip.className = 'day-chip';
+        chip.className = 'day-chip is-draggable';
+        chip.dataset.id = item.id;
+        chip.dataset.occ = item.date;
         if (item.color) chip.dataset.color = item.color;
         chip.textContent = item.time ? formatTime(item.time) + ' ' + item.title : item.title;
         cell.appendChild(chip);
       });
       tasks.slice(0, Math.max(0, MAX_CHIPS - events.length)).forEach(function (task) {
         var chip = document.createElement('span');
-        chip.className = 'day-chip is-task';
+        chip.className = 'day-chip is-task is-draggable';
+        chip.dataset.task = task.id;
+        chip.dataset.occ = task.due;
         chip.textContent = '☐ ' + task.title;
         cell.appendChild(chip);
       });
@@ -217,7 +241,9 @@ window.CalendarView = (function () {
 
       events.forEach(function (item) {
         var chip = document.createElement('span');
-        chip.className = 'day-chip';
+        chip.className = 'day-chip is-draggable';
+        chip.dataset.id = item.id;
+        chip.dataset.occ = item.date;
         if (item.color) chip.dataset.color = item.color;
         // The time is its own span so a narrow column can drop it: on a phone
         // "7:0..." says nothing, where the title at least names the thing.
@@ -232,7 +258,9 @@ window.CalendarView = (function () {
       });
       tasks.forEach(function (task) {
         var chip = document.createElement('span');
-        chip.className = 'day-chip is-task';
+        chip.className = 'day-chip is-task is-draggable';
+        chip.dataset.task = task.id;
+        chip.dataset.occ = task.due;
         chip.textContent = '\u2610 ' + task.title;
         column.appendChild(chip);
       });
@@ -311,6 +339,221 @@ window.CalendarView = (function () {
     els.yearGrid.appendChild(fragment);
   }
 
+  /* ------------------------------------------------------------ timeline -- */
+
+  var HOUR_PX = 48;
+  var timelineDate = '';
+
+  // "9 AM" or "09", following the clock setting — short enough for the gutter.
+  function hourLabel(hour) {
+    var options = { hour: 'numeric' };
+    var twelve = Fmt.hour12();
+    if (twelve !== undefined) options.hour12 = twelve;
+    return new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, options);
+  }
+
+  // Day view as hours: timed events are blocks you can drag up and down and
+  // stretch, untimed ones sit in a strip above.
+  function renderTimeline() {
+    var items = Store.eventsOn(selectedDate);
+
+    els.allDay.innerHTML = '';
+    items.filter(function (item) { return !item.time; }).forEach(function (item) {
+      var row = document.createElement('li');
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'day-chip timeline-allday-chip';
+      chip.dataset.open = item.id;
+      chip.dataset.occ = item.date;
+      if (item.color) chip.dataset.color = item.color;
+      chip.textContent = item.title;
+      row.appendChild(chip);
+      els.allDay.appendChild(row);
+    });
+    els.allDay.hidden = !els.allDay.children.length;
+
+    var grid = els.timelineGrid;
+    grid.innerHTML = '';
+    grid.style.height = (24 * HOUR_PX) + 'px';
+
+    for (var hour = 0; hour < 24; hour++) {
+      var line = document.createElement('div');
+      line.className = 'timeline-hour';
+      line.style.top = (hour * HOUR_PX) + 'px';
+      line.dataset.hour = String(hour);
+      var label = document.createElement('span');
+      label.textContent = hour === 0 ? '' : hourLabel(hour);
+      line.appendChild(label);
+      grid.appendChild(line);
+    }
+
+    var blocks = Timeline.layout(items);
+    blocks.forEach(function (block) {
+      var item = block.item;
+      var node = document.createElement('button');
+      node.type = 'button';
+      node.className = 'timeline-event';
+      node.dataset.id = item.id;
+      node.dataset.occ = item.date;
+      node.dataset.start = String(block.start);
+      node.dataset.end = String(block.end);
+      node.dataset.hasEnd = item.endTime ? '1' : '';
+      if (item.color) node.dataset.color = item.color;
+      placeBlock(node, block.start, block.end);
+      node.style.left = 'calc(var(--timeline-gutter) + (100% - var(--timeline-gutter)) * ' +
+        (block.column / block.columns) + ')';
+      node.style.width = 'calc((100% - var(--timeline-gutter)) / ' + block.columns + ' - 3px)';
+
+      var title = document.createElement('span');
+      title.className = 'timeline-title';
+      title.textContent = item.title;
+      var when = document.createElement('span');
+      when.className = 'timeline-when';
+      when.textContent = item.endTime
+        ? formatTime(item.time) + ' – ' + formatTime(item.endTime)
+        : formatTime(item.time);
+      var handle = document.createElement('span');
+      handle.className = 'timeline-resize';
+      handle.setAttribute('aria-hidden', 'true');
+
+      node.appendChild(title);
+      node.appendChild(when);
+      node.appendChild(handle);
+      node.setAttribute('aria-label', item.title + ', ' + when.textContent);
+      grid.appendChild(node);
+    });
+
+    if (selectedDate === Store.todayKey()) {
+      var nowAt = new Date();
+      var now = document.createElement('div');
+      now.className = 'timeline-now';
+      now.style.top = ((nowAt.getHours() * 60 + nowAt.getMinutes()) / 60 * HOUR_PX) + 'px';
+      grid.appendChild(now);
+    }
+
+    // Open on the part of the day that matters, but only when the day changes:
+    // re-rendering after a drag must not yank the view back.
+    if (timelineDate !== selectedDate) {
+      timelineDate = selectedDate;
+      var first = blocks.length ? blocks[0].start : -1;
+      var focus = selectedDate === Store.todayKey()
+        ? new Date().getHours() * 60
+        : (first >= 0 ? first : 8 * 60);
+      els.timelineScroll.scrollTop = Math.max(0, (focus / 60 - 1) * HOUR_PX);
+    }
+  }
+
+  function placeBlock(node, start, end) {
+    node.style.top = (start / 60 * HOUR_PX) + 'px';
+    node.style.height = Math.max(18, (end - start) / 60 * HOUR_PX - 2) + 'px';
+    node.classList.toggle('is-short', end - start < 45);
+  }
+
+  // Moving or stretching a block on the timeline, in 15-minute steps.
+  function timelineSession(node, gesture) {
+    var resizing = !!gesture.target.closest('.timeline-resize');
+    var start = Number(node.dataset.start);
+    var end = Number(node.dataset.end);
+    var landed = { start: start, end: end };
+    var when = node.querySelector('.timeline-when');
+    var scroller = els.timelineScroll;
+    var scrolledFrom = scroller.scrollTop;
+    node.classList.add('is-dragging');
+
+    return {
+      move: function (dx, dy, x, y) {
+        // Near the top or bottom edge, keep scrolling so a block can travel
+        // further than the visible hours.
+        var box = scroller.getBoundingClientRect();
+        if (y < box.top + 30) scroller.scrollTop -= 10;
+        else if (y > box.bottom - 30) scroller.scrollTop += 10;
+
+        var delta = Drag.snapMinutes(dy + scroller.scrollTop - scrolledFrom, HOUR_PX, 15);
+        landed = Timeline.moved(start, end, delta, resizing);
+        placeBlock(node, landed.start, landed.end);
+        when.textContent = formatTime(Timeline.clockOf(landed.start)) +
+          (resizing || node.dataset.hasEnd ? ' – ' + formatTime(Timeline.clockOf(landed.end)) : '');
+      },
+      end: function (commit) {
+        node.classList.remove('is-dragging');
+        if (!commit || (landed.start === start && landed.end === end)) {
+          render();
+          return;
+        }
+        var keepsEnd = resizing || !!node.dataset.hasEnd;
+        var moved = Store.moveEvent(node.dataset.id, node.dataset.occ, {
+          time: Timeline.clockOf(landed.start),
+          endTime: keepsEnd ? Timeline.clockOf(landed.end) : ''
+        });
+        announceMove(moved, node.dataset.id);
+        render();
+      }
+    };
+  }
+
+  // Carrying a chip from one day to another in the month or week grid.
+  function daySession(container) {
+    return function (chip) {
+      var rect = chip.getBoundingClientRect();
+      var ghost = chip.cloneNode(true);
+      ghost.classList.add('drag-ghost');
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      ghost.style.width = rect.width + 'px';
+      document.body.appendChild(ghost);
+      chip.classList.add('is-drag-source');
+      var target = null;
+
+      function setTarget(cell) {
+        if (cell === target) return;
+        if (target) target.classList.remove('is-drop-target');
+        target = cell;
+        if (target) target.classList.add('is-drop-target');
+      }
+
+      return {
+        move: function (dx, dy, x, y) {
+          ghost.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+          var under = document.elementFromPoint(x, y);
+          var cell = under && under.closest('[data-date]');
+          setTarget(cell && container.contains(cell) ? cell : null);
+        },
+        end: function (commit) {
+          ghost.remove();
+          chip.classList.remove('is-drag-source');
+          var date = target ? target.dataset.date : '';
+          setTarget(null);
+          if (!commit || !date || date === chip.dataset.occ) return;
+          dropOnDay(chip, date);
+        }
+      };
+    };
+  }
+
+  function dropOnDay(chip, date) {
+    if (chip.dataset.task) {
+      var task = Store.getTask(chip.dataset.task);
+      if (!task) return;
+      Store.saveTask({
+        id: task.id, title: task.title, due: date, details: task.details, repeat: task.repeat
+      });
+    } else {
+      announceMove(Store.moveEvent(chip.dataset.id, chip.dataset.occ, { date: date }), chip.dataset.id);
+    }
+    selectedDate = date;
+    var moved = Store.fromKey(date);
+    viewMonth = new Date(moved.getFullYear(), moved.getMonth(), 1);
+    render();
+  }
+
+  // Dragging one day of a series leaves the rest where they were — say so,
+  // because it is not obvious from the screen.
+  function announceMove(result, originalId) {
+    if (result && result.id !== originalId && window.App && App.toast) {
+      App.toast('Moved this day only. Edit the event to move the whole series.');
+    }
+  }
+
   function renderDayPanel() {
     els.dayLabel.textContent = formatDayLabel(selectedDate);
     els.dayEvents.innerHTML = '';
@@ -332,7 +575,7 @@ window.CalendarView = (function () {
 
         var time = document.createElement('span');
         time.className = 'event-time';
-        time.textContent = formatTime(item.time);
+        fillTime(time, item);
 
         var body = document.createElement('span');
         body.className = 'event-body';
@@ -346,6 +589,11 @@ window.CalendarView = (function () {
           repeat.textContent = 'repeats';
           title.appendChild(document.createTextNode(' '));
           title.appendChild(repeat);
+        }
+        var notes = noteMark(item);
+        if (notes) {
+          title.appendChild(document.createTextNode(' '));
+          title.appendChild(notes);
         }
         if (item.details) {
           var details = document.createElement('p');
@@ -419,7 +667,7 @@ window.CalendarView = (function () {
 
         var time = document.createElement('span');
         time.className = 'event-time';
-        time.textContent = formatTime(item.time);
+        fillTime(time, item);
         var body = document.createElement('span');
         body.className = 'event-body';
         var title = document.createElement('span');
@@ -503,6 +751,7 @@ window.CalendarView = (function () {
     if (mode === 'week') renderWeek();
     else if (mode === 'year') renderYear();
     else if (mode === 'month') renderGrid();
+    else if (mode === 'day') renderTimeline();
 
     els.monthLabel.textContent = rangeLabel();
     if (mode !== 'year') renderDayPanel();
@@ -520,7 +769,9 @@ window.CalendarView = (function () {
     els.grid.hidden = mode !== 'month';
     els.weekGrid.hidden = mode !== 'week';
     els.yearGrid.hidden = mode !== 'year';
+    els.timeline.hidden = mode !== 'day';
     els.weekdays.hidden = mode !== 'month';
+    if (mode !== 'day') timelineDate = '';
 
     Array.prototype.forEach.call(els.modes.querySelectorAll('[data-mode]'), function (chip) {
       chip.classList.toggle('is-on', chip.dataset.mode === mode);
@@ -564,7 +815,15 @@ window.CalendarView = (function () {
     els.until.parentNode.hidden = !els.repeat.value;
   }
 
-  function openModal(eventId, dateKey, occurrence) {
+  // An end time without a start has nothing to end.
+  function syncEndField() {
+    var hasStart = !!els.eventTime.value;
+    els.eventEnd.disabled = !hasStart;
+    if (!hasStart) els.eventEnd.value = '';
+    els.endField.classList.toggle('is-muted', !hasStart);
+  }
+
+  function openModal(eventId, dateKey, occurrence, presetTime) {
     editingId = eventId || null;
     editingMaster = eventId ? Store.getEvent(eventId) : null;
     occurrenceDate = occurrence || dateKey || selectedDate;
@@ -575,7 +834,8 @@ window.CalendarView = (function () {
     els.eventDate.value = editingMaster
       ? (editingMaster.repeat ? occurrenceDate : editingMaster.date)
       : (dateKey || selectedDate);
-    els.eventTime.value = editingMaster ? (editingMaster.time || '') : '';
+    els.eventTime.value = editingMaster ? (editingMaster.time || '') : (presetTime || '');
+    els.eventEnd.value = editingMaster ? (editingMaster.endTime || '') : '';
     els.eventDetails.value = editingMaster ? (editingMaster.details || '') : '';
     els.repeat.value = editingMaster ? (editingMaster.repeat || '') : '';
     els.until.value = editingMaster ? (editingMaster.repeatUntil || '') : '';
@@ -585,8 +845,12 @@ window.CalendarView = (function () {
       : Store.getSettings().defaultRemind);
     els.eventDelete.hidden = !editingMaster;
     els.eventError.hidden = true;
+    var written = editingMaster ? Store.notesForEvent(editingMaster.id, occurrenceDate).length : 0;
+    els.eventNotes.hidden = !editingMaster;
+    els.eventNotes.textContent = written ? 'Open notes' : 'Add notes';
 
     syncUntilField();
+    syncEndField();
     showScope(!!(editingMaster && editingMaster.repeat));
 
     els.modal.hidden = false;
@@ -618,6 +882,9 @@ window.CalendarView = (function () {
     if (els.repeat.value && els.until.value && els.until.value < date) {
       return showError('The repeat cannot end before it starts.');
     }
+    if (els.eventEnd.value && els.eventEnd.value <= els.eventTime.value) {
+      return showError('It has to end after it starts.');
+    }
 
     var scope = currentScope();
     Store.saveEvent({
@@ -627,6 +894,7 @@ window.CalendarView = (function () {
       title: title,
       date: date,
       time: els.eventTime.value || '',
+      endTime: els.eventEnd.value || '',
       details: els.eventDetails.value.trim(),
       color: chosenColor(),
       remind: Number(els.remind.value),
@@ -658,6 +926,66 @@ window.CalendarView = (function () {
     render();
   }
 
+  // Meeting notes: one note per event (per day, for a repeating one), made on
+  // first use and opened every time after.
+  function openEventNotes() {
+    if (!editingMaster) return;
+    var master = editingMaster;
+    var day = master.repeat ? occurrenceDate : master.date;
+    var existing = Store.notesForEvent(master.id, day)[0];
+    closeModal();
+    if (existing) {
+      NotesView.openNote(existing.id);
+      return;
+    }
+    var label = Store.fromKey(day).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    NotesView.newNote({ title: master.title + ' · ' + label, eventId: master.id, eventDate: day });
+  }
+
+  /* ------------------------------------------------------------ quick add -- */
+
+  function quickHint() {
+    var text = els.quickTitle.value.trim();
+    var parsed = text ? QuickParse.parse(text) : null;
+    if (!parsed) {
+      els.quickHint.hidden = true;
+      return;
+    }
+    // With no date in the text it goes on whichever day is picked, so say so.
+    var shown = parsed.date ? parsed : Object.assign({}, parsed, { date: selectedDate });
+    els.quickHint.hidden = false;
+    els.quickHint.textContent = '“' + parsed.title + '” · ' + QuickParse.describe(shown, 'event').join(' · ');
+  }
+
+  function quickAdd(formEvent) {
+    formEvent.preventDefault();
+    var text = els.quickTitle.value.trim();
+    if (!text) return;
+    var parsed = QuickParse.parse(text);
+    var date = parsed.date || selectedDate;
+    Store.saveEvent({
+      title: parsed.title,
+      date: date,
+      time: parsed.time,
+      endTime: parsed.endTime,
+      details: '',
+      color: '',
+      remind: Store.getSettings().defaultRemind,
+      repeat: parsed.repeat,
+      repeatUntil: parsed.repeatUntil
+    });
+    els.quickTitle.value = '';
+    els.quickHint.hidden = true;
+    selectedDate = date;
+    var moved = Store.fromKey(date);
+    viewMonth = new Date(moved.getFullYear(), moved.getMonth(), 1);
+    render();
+    if (window.App && App.toast) {
+      App.toast('Added to ' + Store.fromKey(date).toLocaleDateString(undefined,
+        { weekday: 'short', day: 'numeric', month: 'short' }));
+    }
+  }
+
   /* ----------------------------------------------------------------- api -- */
 
   function init() {
@@ -674,6 +1002,15 @@ window.CalendarView = (function () {
       eventTitle: document.getElementById('event-title'),
       eventDate: document.getElementById('event-date'),
       eventTime: document.getElementById('event-time'),
+      eventEnd: document.getElementById('event-end'),
+      endField: document.getElementById('event-end-field'),
+      eventNotes: document.getElementById('event-notes'),
+      timeline: document.getElementById('day-timeline'),
+      allDay: document.getElementById('timeline-allday'),
+      timelineScroll: document.getElementById('timeline-scroll'),
+      timelineGrid: document.getElementById('timeline-grid'),
+      quickTitle: document.getElementById('quick-event-title'),
+      quickHint: document.getElementById('quick-event-hint'),
       eventDetails: document.getElementById('event-details'),
       eventDelete: document.getElementById('event-delete'),
       eventError: document.getElementById('event-error'),
@@ -752,6 +1089,35 @@ window.CalendarView = (function () {
     });
 
     els.repeat.addEventListener('change', syncUntilField);
+    els.eventTime.addEventListener('input', syncEndField);
+    els.eventTime.addEventListener('change', syncEndField);
+    els.eventNotes.addEventListener('click', openEventNotes);
+
+    document.getElementById('quick-event').addEventListener('submit', quickAdd);
+    els.quickTitle.addEventListener('input', quickHint);
+
+    // Drag a chip to another day in the month and week grids; drag a block up,
+    // down, or by its bottom edge on the Day timeline.
+    Drag.attach(els.grid, { selector: '.is-draggable', start: daySession(els.grid) });
+    Drag.attach(els.weekGrid, { selector: '.is-draggable', start: daySession(els.weekGrid) });
+    Drag.attach(els.timelineGrid, { selector: '.timeline-event', start: timelineSession });
+
+    els.timelineGrid.addEventListener('click', function (clickEvent) {
+      var block = clickEvent.target.closest('.timeline-event');
+      if (block) {
+        openModal(block.dataset.id, block.dataset.occ, block.dataset.occ);
+        return;
+      }
+      // An empty hour: a new event starting there.
+      var box = els.timelineGrid.getBoundingClientRect();
+      var hour = Math.floor((clickEvent.clientY - box.top) / HOUR_PX);
+      if (hour < 0 || hour > 23) return;
+      openModal(null, selectedDate, null, String(hour).padStart(2, '0') + ':00');
+    });
+    els.allDay.addEventListener('click', function (clickEvent) {
+      var chip = clickEvent.target.closest('[data-open]');
+      if (chip) openModal(chip.dataset.open, chip.dataset.occ, chip.dataset.occ);
+    });
 
     els.colors.addEventListener('click', function (clickEvent) {
       var swatch = clickEvent.target.closest('.swatch');

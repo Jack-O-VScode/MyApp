@@ -1,4 +1,8 @@
-/* Note list, search, tag filtering and the full-screen note editor. */
+/* Note list, search, tag filtering and the full-screen note editor.
+
+   Notes are Markdown. The editor stays a plain textarea — what you type is
+   what is stored, readable anywhere — and Preview shows it formatted, with
+   working checkboxes and any attached pictures. */
 window.NotesView = (function () {
   'use strict';
 
@@ -9,6 +13,7 @@ window.NotesView = (function () {
   var saveTimer = null;
   var query = '';
   var activeTag = '';
+  var previewing = false;
 
   function formatStamp(stamp) {
     var date = new Date(stamp);
@@ -24,7 +29,7 @@ window.NotesView = (function () {
   }
 
   function preview(note) {
-    var text = note.body.trim();
+    var text = Markdown.plain(note.body).trim();
     return text ? text.slice(0, 240) : 'No additional text';
   }
 
@@ -142,10 +147,142 @@ window.NotesView = (function () {
     els.body.value = note.body;
     els.tags.value = note.tags.join(', ');
     setPinButton(note.pinned);
+    renderLink(note);
     els.status.textContent = 'Edited ' + formatStamp(note.updatedAt);
     els.editor.hidden = false;
     document.body.style.overflow = 'hidden';
+    setPreview(false);
     (note.title || note.body ? els.body : els.title).focus();
+  }
+
+  /* -------------------------------------------------------- linked event -- */
+
+  // A note made from an event says which one, and goes back to it.
+  function renderLink(note) {
+    var event = note.eventId ? Store.getEvent(note.eventId) : null;
+    els.link.hidden = !event;
+    if (!event) return;
+    var day = note.eventDate || event.date;
+    els.linkOpen.textContent = '📅 ' + event.title + ' · ' + Store.fromKey(day)
+      .toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  function openLinkedEvent() {
+    var note = currentId && Store.getNote(currentId);
+    var event = note && note.eventId ? Store.getEvent(note.eventId) : null;
+    if (!event) return;
+    var day = note.eventDate || event.date;
+    close();
+    location.hash = '#calendar';
+    CalendarView.selectDate(day);
+    CalendarView.editEvent(event.id, day);
+  }
+
+  /* -------------------------------------------------------------- preview -- */
+
+  function setPreview(on) {
+    previewing = on;
+    els.previewToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    els.previewToggle.textContent = on ? 'Edit' : 'Preview';
+    els.previewToggle.classList.toggle('is-on', on);
+    els.body.hidden = on;
+    els.rendered.hidden = !on;
+    if (on) renderPreview();
+  }
+
+  function renderPreview() {
+    var body = els.body.value;
+    els.rendered.innerHTML = body.trim()
+      ? Markdown.render(body)
+      : '<p class="empty">Nothing written yet.</p>';
+    Array.prototype.forEach.call(els.rendered.querySelectorAll('[data-att]'), function (slot) {
+      Attachments.url(slot.dataset.att).then(function (src) {
+        var img = document.createElement('img');
+        img.className = 'md-image';
+        img.alt = slot.getAttribute('aria-label') || '';
+        img.src = src;
+        slot.replaceWith(img);
+      }).catch(function (err) {
+        slot.classList.remove('is-loading');
+        slot.classList.add('is-missing');
+        slot.textContent = '🖼 ' + (slot.getAttribute('aria-label') || 'picture') + ' — ' + err.message;
+      });
+    });
+  }
+
+  /* ----------------------------------------------------------- formatting -- */
+
+  function edit(value, selectStart, selectEnd) {
+    els.body.value = value;
+    els.body.focus();
+    els.body.selectionStart = selectStart;
+    els.body.selectionEnd = selectEnd;
+    scheduleSave();
+  }
+
+  // Wraps the selection — or a placeholder, selected so typing replaces it.
+  function wrap(before, after, placeholder) {
+    var body = els.body;
+    var start = body.selectionStart;
+    var end = body.selectionEnd;
+    var chosen = body.value.slice(start, end) || placeholder;
+    edit(body.value.slice(0, start) + before + chosen + after + body.value.slice(end),
+      start + before.length, start + before.length + chosen.length);
+  }
+
+  // Adds a marker to the start of the line, or takes it off if it is there.
+  function toggleLinePrefix(prefix) {
+    var body = els.body;
+    var value = body.value;
+    var caret = body.selectionStart;
+    var lineStart = value.lastIndexOf('\n', caret - 1) + 1;
+    var has = value.slice(lineStart, lineStart + prefix.length) === prefix;
+    var next = has
+      ? value.slice(0, lineStart) + value.slice(lineStart + prefix.length)
+      : value.slice(0, lineStart) + prefix + value.slice(lineStart);
+    var shift = has ? -prefix.length : prefix.length;
+    var at = Math.max(lineStart, caret + shift);
+    edit(next, at, at);
+  }
+
+  function format(kind) {
+    if (previewing) setPreview(false);
+    if (kind === 'bold') wrap('**', '**', 'bold');
+    else if (kind === 'italic') wrap('*', '*', 'italic');
+    else if (kind === 'heading') toggleLinePrefix('## ');
+    else if (kind === 'list') toggleLinePrefix('- ');
+    else if (kind === 'link') wrap('[', '](https://)', 'link text');
+  }
+
+  // Puts text on a line of its own at the cursor.
+  function insertBlock(text) {
+    var body = els.body;
+    var value = body.value;
+    var at = body.selectionEnd;
+    var before = value.slice(0, at);
+    var lead = before && !/\n$/.test(before) ? '\n' : '';
+    var insert = lead + text + '\n';
+    edit(before + insert + value.slice(at), at + insert.length, at + insert.length);
+  }
+
+  function attachImage(file) {
+    if (!file || !currentId) return;
+    if (!/^image\//.test(file.type)) {
+      if (window.App) App.toast('That is not a picture.');
+      return;
+    }
+    var noteId = currentId;
+    els.status.textContent = 'Uploading picture…';
+    Attachments.upload(noteId, file).then(function (ref) {
+      if (currentId !== noteId) return;
+      if (previewing) setPreview(false);
+      var alt = String(file.name || 'picture').replace(/\.[^.]*$/, '').replace(/[\[\]()]/g, '');
+      insertBlock('![' + alt + '](att:' + ref + ')');
+      setPreview(true);
+    }).catch(function (err) {
+      els.status.textContent = '';
+      if (window.App) App.toast(err.message || 'The picture could not be uploaded.');
+    });
   }
 
   function fields() {
@@ -199,6 +336,7 @@ window.NotesView = (function () {
       saveTimer = null;
     }
     Store.deleteNote(currentId);
+    Attachments.removeAll(currentId);
     currentId = null;
     els.editor.hidden = true;
     document.body.style.overflow = '';
@@ -218,8 +356,50 @@ window.NotesView = (function () {
       tags: document.getElementById('note-tags'),
       pin: document.getElementById('note-pin'),
       check: document.getElementById('note-check'),
-      status: document.getElementById('note-status')
+      status: document.getElementById('note-status'),
+      rendered: document.getElementById('note-rendered'),
+      previewToggle: document.getElementById('note-preview'),
+      format: document.querySelector('#note-editor .note-format'),
+      image: document.getElementById('note-image'),
+      imageFile: document.getElementById('note-image-file'),
+      link: document.getElementById('note-link'),
+      linkOpen: document.getElementById('note-link-open')
     };
+
+    els.previewToggle.addEventListener('click', function () {
+      flush();
+      setPreview(!previewing);
+      if (!previewing) els.body.focus();
+    });
+    els.format.addEventListener('click', function (clickEvent) {
+      var button = clickEvent.target.closest('[data-format]');
+      if (button) format(button.dataset.format);
+    });
+    els.image.addEventListener('click', function () {
+      if (!Attachments.available()) {
+        if (window.App) App.toast('Pictures are stored in your sync project — turn on Sync first.');
+        return;
+      }
+      els.imageFile.click();
+    });
+    els.imageFile.addEventListener('change', function () {
+      attachImage(this.files && this.files[0]);
+      this.value = '';
+    });
+    // Ticking a box in the preview ticks the line it came from.
+    els.rendered.addEventListener('change', function (changeEvent) {
+      var line = changeEvent.target.dataset.line;
+      if (line === undefined) return;
+      els.body.value = Markdown.toggleLine(els.body.value, Number(line));
+      scheduleSave();
+      renderPreview();
+    });
+    els.linkOpen.addEventListener('click', openLinkedEvent);
+    document.getElementById('note-link-remove').addEventListener('click', function () {
+      if (!currentId) return;
+      var note = Store.updateNote(currentId, { eventId: '' });
+      if (note) renderLink(note);
+    });
 
     els.search.addEventListener('input', function () {
       query = els.search.value.trim();
@@ -250,6 +430,7 @@ window.NotesView = (function () {
     // Checklists are plain "- [ ]" lines, so this just rewrites the line the
     // cursor is on and puts the cursor back where it was.
     els.check.addEventListener('click', function () {
+      if (previewing) setPreview(false);
       var body = els.body;
       var value = body.value;
       var caret = body.selectionStart;
@@ -291,7 +472,7 @@ window.NotesView = (function () {
   return {
     init: init,
     render: render,
-    newNote: function () { open(Store.createNote().id); },
+    newNote: function (link) { open(Store.createNote(link).id); },
     openNote: open,
     isEditorOpen: function () { return !els.editor.hidden; },
     closeEditor: close

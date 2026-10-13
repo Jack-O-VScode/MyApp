@@ -9,6 +9,21 @@
 */
 window.CHANGELOG = [
   {
+    version: 26, date: '2026-10-13', title: 'Drag, type, and say what you mean',
+    changes: [
+      { kind: 'new', text: 'Drag events and tasks to another day in Week and Month. Day view is now a timeline: drag an event up or down to change its time, or pull its bottom edge to change how long it runs. On a phone, hold it for a moment first.' },
+      { kind: 'new', text: 'Events can have an end time.' },
+      { kind: 'new', text: 'Type it how you would say it: “Lunch with Sam fri 1pm” in the Calendar box, or “Pay rent every month on the 1st !high” in Tasks. The box shows what it understood before you press Enter.' },
+      { kind: 'new', text: 'Tasks have a priority, a list of steps to tick off, and their own reminder time. Sort the list by due date, priority or newest.' },
+      { kind: 'new', text: 'Notes understand Markdown — headings, bold, italic, lists, links — with a Preview button and a small formatting bar. Checkboxes can be ticked right in the preview.' },
+      { kind: 'new', text: 'Attach pictures to a note. They are kept in your own sync project and stay viewable offline once seen.' },
+      { kind: 'new', text: 'Meeting notes: open an event and press Add notes for a note tied to it (to that day, for a repeating one). Events with notes show a 📝.' },
+      { kind: 'new', text: 'Files you leave for later can be kept for however many minutes, hours or days you type — or set never to expire.' },
+      { kind: 'better', text: 'Moving one day of a repeating event moves only that day, and says so.' },
+      { kind: 'fixed', text: 'Folders used behind the scenes no longer show up as files waiting to be picked up.' }
+    ]
+  },
+  {
     version: 25, date: '2026-09-17', title: 'Every font your device has',
     changes: [
       { kind: 'new', text: 'Font is now a searchable list of around seventy faces instead of four. Type to narrow it down, and every name is drawn in its own font so you can see what you are choosing.' },

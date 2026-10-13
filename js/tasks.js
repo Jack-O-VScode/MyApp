@@ -8,6 +8,11 @@ window.TasksView = (function () {
   var lastFocused = null;
   var filter = 'open';
   var query = '';
+  // The editor works on a copy, so Cancel really does leave the steps alone.
+  var draftSubtasks = [];
+  var draftPriority = 0;
+
+  var PRIORITY_NAMES = ['', 'Low', 'Medium', 'High'];
 
   /* ------------------------------------------------------------- helpers -- */
 
@@ -78,11 +83,30 @@ window.TasksView = (function () {
       badge.textContent = state === 'overdue' ? 'Overdue · ' + dueLabel(task) : dueLabel(task);
       badgeRow(open).appendChild(badge);
     }
+    if (task.priority) {
+      var flag = document.createElement('span');
+      flag.className = 'prio-mark is-p' + task.priority;
+      flag.textContent = PRIORITY_NAMES[task.priority];
+      badgeRow(open).appendChild(flag);
+    }
     if (task.repeat) {
       var repeat = document.createElement('span');
       repeat.className = 'repeat-mark';
       repeat.textContent = 'repeats';
       badgeRow(open).appendChild(repeat);
+    }
+    var steps = Store.subtaskProgress(task);
+    if (steps) {
+      var count = document.createElement('span');
+      count.className = 'repeat-mark' + (steps.done === steps.total ? ' is-complete' : '');
+      count.textContent = steps.done + '/' + steps.total + ' steps';
+      badgeRow(open).appendChild(count);
+    }
+    if (task.remindTime && !task.done) {
+      var bell = document.createElement('span');
+      bell.className = 'repeat-mark';
+      bell.textContent = '⏰ ' + Fmt.time(task.remindTime);
+      badgeRow(open).appendChild(bell);
     }
     if (task.details) {
       var details = document.createElement('span');
@@ -139,6 +163,14 @@ window.TasksView = (function () {
     els.due.value = task ? task.due : (dueDate || '');
     els.details.value = task ? task.details : '';
     els.repeat.value = task ? (task.repeat || '') : '';
+    els.remind.value = task ? (task.remindTime || '') : '';
+    draftPriority = task ? task.priority : 0;
+    draftSubtasks = task ? task.subtasks.map(function (sub) {
+      return { id: sub.id, title: sub.title, done: sub.done };
+    }) : [];
+    els.subtaskNew.value = '';
+    renderPriority();
+    renderSubtasks();
     els.delete.hidden = !task;
     els.error.hidden = true;
     syncRepeatField();
@@ -162,14 +194,85 @@ window.TasksView = (function () {
       els.error.hidden = false;
       return;
     }
+    // A step typed but not yet added is still a step.
+    addSubtask();
+    readSubtaskTitles();
     Store.saveTask({
       id: editingId,
       title: title,
       due: els.due.value,
       details: els.details.value.trim(),
-      repeat: els.repeat.value
+      repeat: els.repeat.value,
+      priority: draftPriority,
+      subtasks: draftSubtasks,
+      remindTime: els.remind.value
     });
     closeEditor();
+  }
+
+  /* ----------------------------------------------------- priority, steps -- */
+
+  function renderPriority() {
+    Array.prototype.forEach.call(els.priority.querySelectorAll('[data-priority]'), function (button) {
+      var on = Number(button.dataset.priority) === draftPriority;
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
+  // Titles are edited in place, so read them back before anything redraws.
+  function readSubtaskTitles() {
+    Array.prototype.forEach.call(els.subtasks.querySelectorAll('[data-sub-title]'), function (input) {
+      var sub = draftSubtasks.filter(function (item) { return item.id === input.dataset.subTitle; })[0];
+      if (sub) sub.title = input.value;
+    });
+  }
+
+  function renderSubtasks() {
+    els.subtasks.innerHTML = '';
+    draftSubtasks.forEach(function (sub) {
+      var row = document.createElement('li');
+      row.className = 'subtask' + (sub.done ? ' is-done' : '');
+
+      var box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = sub.done;
+      box.dataset.subToggle = sub.id;
+      box.setAttribute('aria-label', 'Done: ' + sub.title);
+
+      var text = document.createElement('input');
+      text.type = 'text';
+      text.value = sub.title;
+      text.maxLength = 200;
+      text.dataset.subTitle = sub.id;
+      text.setAttribute('aria-label', 'Step');
+
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'icon-button small';
+      remove.dataset.subRemove = sub.id;
+      remove.setAttribute('aria-label', 'Remove step');
+      remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
+
+      row.appendChild(box);
+      row.appendChild(text);
+      row.appendChild(remove);
+      els.subtasks.appendChild(row);
+    });
+  }
+
+  function addSubtask() {
+    var title = els.subtaskNew.value.trim();
+    if (!title) return false;
+    readSubtaskTitles();
+    draftSubtasks.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      title: title,
+      done: false
+    });
+    els.subtaskNew.value = '';
+    renderSubtasks();
+    return true;
   }
 
   function removeTask() {
@@ -185,12 +288,27 @@ window.TasksView = (function () {
     els.repeat.disabled = !hasDate;
     if (!hasDate) els.repeat.value = '';
     els.repeatField.classList.toggle('is-muted', !hasDate);
+    // Same for the reminder: "at nine" needs a day to be nine on.
+    els.remind.disabled = !hasDate;
+    if (!hasDate) els.remind.value = '';
+    els.remindField.classList.toggle('is-muted', !hasDate);
+  }
+
+  /* ------------------------------------------------------------ quick add -- */
+
+  function quickHint() {
+    var text = els.quickTitle.value.trim();
+    var parsed = text ? QuickParse.parse(text) : null;
+    var bits = parsed ? QuickParse.describe(parsed, 'task') : [];
+    els.quickHint.hidden = !bits.length;
+    if (bits.length) els.quickHint.textContent = '“' + parsed.title + '” · ' + bits.join(' · ');
   }
 
   /* ------------------------------------------------------------- the view -- */
 
   function render() {
-    var tasks = Store.allTasks({ query: query, openOnly: filter === 'open' });
+    var sort = Store.getSettings().taskSort;
+    var tasks = Store.allTasks({ query: query, openOnly: filter === 'open', sort: sort });
     var emptyText = query
       ? 'No tasks match “' + query + '”.'
       : (filter === 'open' ? 'Nothing to do. Enjoy it.' : 'No tasks yet.');
@@ -202,6 +320,9 @@ window.TasksView = (function () {
 
     Array.prototype.forEach.call(els.filters.querySelectorAll('[data-filter]'), function (chip) {
       chip.classList.toggle('is-on', chip.dataset.filter === filter);
+    });
+    Array.prototype.forEach.call(els.sort.querySelectorAll('[data-sort]'), function (chip) {
+      chip.classList.toggle('is-on', chip.dataset.sort === sort);
     });
   }
 
@@ -220,6 +341,13 @@ window.TasksView = (function () {
       details: document.getElementById('task-details'),
       repeat: document.getElementById('task-repeat'),
       repeatField: document.getElementById('task-repeat-field'),
+      remind: document.getElementById('task-remind'),
+      remindField: document.getElementById('task-remind-field'),
+      priority: document.getElementById('task-priority'),
+      subtasks: document.getElementById('task-subtasks'),
+      subtaskNew: document.getElementById('task-subtask-new'),
+      sort: document.getElementById('task-sort'),
+      quickHint: document.getElementById('quick-task-hint'),
       delete: document.getElementById('task-delete'),
       error: document.getElementById('task-error')
     };
@@ -233,11 +361,68 @@ window.TasksView = (function () {
 
     els.quickForm.addEventListener('submit', function (formEvent) {
       formEvent.preventDefault();
-      var title = els.quickTitle.value.trim();
-      if (!title) return;
-      Store.saveTask({ title: title, due: '', details: '' });
+      var text = els.quickTitle.value.trim();
+      if (!text) return;
+      // "Pay rent every month on the 1st !high" is a title, a date, a repeat
+      // and a priority; a time becomes the reminder on the due date.
+      var parsed = QuickParse.parse(text);
+      Store.saveTask({
+        title: parsed.title,
+        due: parsed.date,
+        details: '',
+        repeat: parsed.repeat,
+        priority: parsed.priority,
+        remindTime: parsed.time
+      });
       els.quickTitle.value = '';
+      quickHint();
       els.quickTitle.focus();
+    });
+    els.quickTitle.addEventListener('input', quickHint);
+
+    els.sort.addEventListener('click', function (clickEvent) {
+      var chip = clickEvent.target.closest('[data-sort]');
+      if (!chip) return;
+      Store.saveSettings({ taskSort: chip.dataset.sort });
+      render();
+    });
+
+    els.priority.addEventListener('click', function (clickEvent) {
+      var button = clickEvent.target.closest('[data-priority]');
+      if (!button) return;
+      draftPriority = Number(button.dataset.priority);
+      renderPriority();
+    });
+
+    els.subtasks.addEventListener('change', function (changeEvent) {
+      var id = changeEvent.target.dataset.subToggle;
+      if (!id) return;
+      var sub = draftSubtasks.filter(function (item) { return item.id === id; })[0];
+      if (sub) sub.done = changeEvent.target.checked;
+      changeEvent.target.closest('.subtask').classList.toggle('is-done', changeEvent.target.checked);
+    });
+    els.subtasks.addEventListener('click', function (clickEvent) {
+      var remove = clickEvent.target.closest('[data-sub-remove]');
+      if (!remove) return;
+      readSubtaskTitles();
+      draftSubtasks = draftSubtasks.filter(function (item) { return item.id !== remove.dataset.subRemove; });
+      renderSubtasks();
+    });
+    // Enter in a step box adds the step rather than saving the whole task.
+    els.subtaskNew.addEventListener('keydown', function (keyEvent) {
+      if (keyEvent.key !== 'Enter') return;
+      keyEvent.preventDefault();
+      addSubtask();
+    });
+    els.subtasks.addEventListener('keydown', function (keyEvent) {
+      if (keyEvent.key === 'Enter' && keyEvent.target.dataset.subTitle) {
+        keyEvent.preventDefault();
+        els.subtaskNew.focus();
+      }
+    });
+    document.getElementById('task-subtask-add').addEventListener('click', function () {
+      addSubtask();
+      els.subtaskNew.focus();
     });
 
     els.filters.addEventListener('click', function (clickEvent) {

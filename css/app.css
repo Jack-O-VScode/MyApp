@@ -1949,7 +1949,9 @@ main {
 /* Day: nothing but the day, so the grid card gets out of the way. The bar
    above already names the day, so the card need not say it twice. */
 #month-layout[data-mode="day"] { grid-template-columns: minmax(0, 1fr); }
-#month-layout[data-mode="day"] .calendar-card { display: none; }
+/* Day keeps the grid card, which now holds the hour timeline, and the list
+   under it gives way to the timeline's blocks. */
+#month-layout[data-mode="day"] #day-events { display: none; }
 #month-layout[data-mode="day"] #day-label { display: none; }
 #month-layout[data-mode="day"] .day-card-head { justify-content: flex-end; }
 
@@ -2088,3 +2090,336 @@ main {
 
 
 [hidden] { display: none !important; }
+
+
+/* ------------------------------------------------------- quick add hint -- */
+.quick-hint {
+  margin: -6px 0 12px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: var(--brand-soft);
+  color: var(--text);
+  font-size: .82rem;
+}
+
+/* ------------------------------------------------- task priority & steps -- */
+.task-sort { align-items: center; margin-top: -6px; }
+.sort-label { color: var(--text-soft); font-size: .8rem; font-weight: 600; }
+
+.prio-mark {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 700;
+  vertical-align: 1px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+}
+.prio-mark.is-p2 { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
+.prio-mark.is-p3 { background: var(--danger); color: #fff; }
+.repeat-mark.is-complete { background: var(--brand-soft); color: var(--brand); }
+
+.subtask-list { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; }
+.subtask { display: flex; align-items: center; gap: 8px; }
+.field .subtask input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand);
+}
+.field .subtask input[type="text"] { flex: 1; min-width: 0; padding: 7px 10px; }
+.subtask.is-done input[type="text"] { color: var(--text-soft); text-decoration: line-through; }
+.subtask-add { display: flex; gap: 8px; }
+.field .subtask-add input { flex: 1; min-width: 0; padding: 8px 10px; }
+.subtask-add .button { flex: none; }
+#task-priority { flex-wrap: wrap; }
+#task-priority button { flex: 1; padding: 7px 6px; }
+
+/* -------------------------------------------------------------- end time -- */
+.event-end {
+  display: block;
+  color: var(--text-soft);
+  font-size: .74rem;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------- drag and drop -- */
+.is-draggable {
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
+.drag-ghost {
+  position: fixed;
+  z-index: 200;
+  margin: 0;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+  opacity: .92;
+  transform-origin: top left;
+}
+.is-drag-source { opacity: .35; }
+.day.is-drop-target, .week-day.is-drop-target {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+/* --------------------------------------------------------- day timeline -- */
+.timeline { --timeline-gutter: 54px; }
+/* The timeline is the day; the card under it only earns its place when there
+   are tasks due, since the quick-add box and an empty hour both add events. */
+#month-layout[data-mode="day"] .day-card:not(:has(#day-tasks-wrap:not([hidden]))) { display: none; }
+.timeline-allday {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0 0 10px var(--timeline-gutter);
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+.timeline-allday-chip { border: 0; cursor: pointer; font: inherit; font-size: .78rem; padding: 3px 8px; }
+.timeline-scroll {
+  position: relative;
+  max-height: min(65vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.timeline-grid { position: relative; cursor: copy; }
+.timeline-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
+}
+.timeline-hour > span {
+  position: absolute;
+  top: -.55em;
+  left: 0;
+  width: calc(var(--timeline-gutter) - 8px);
+  padding-right: 6px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: .68rem;
+  line-height: 1.1;
+  text-align: right;
+  white-space: nowrap;
+}
+.timeline-event {
+  --ev: var(--brand);
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  padding: 3px 7px 8px;
+  border: 0;
+  border-left: 3px solid var(--ev);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ev) 20%, var(--surface));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.timeline-event:hover { background: color-mix(in srgb, var(--ev) 30%, var(--surface)); }
+.timeline-event.is-dragging { z-index: 5; box-shadow: var(--shadow); opacity: .95; }
+.timeline-event[data-color="blue"] { --ev: var(--ev-blue); }
+.timeline-event[data-color="green"] { --ev: var(--ev-green); }
+.timeline-event[data-color="orange"] { --ev: var(--ev-orange); }
+.timeline-event[data-color="red"] { --ev: var(--ev-red); }
+.timeline-event[data-color="purple"] { --ev: var(--ev-purple); }
+.timeline-event[data-color="grey"] { --ev: var(--ev-grey); }
+.timeline-title {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: .8rem;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.timeline-when { color: var(--text-soft); font-size: .7rem; white-space: nowrap; }
+.timeline-event.is-short { flex-direction: row; gap: 6px; align-items: baseline; padding-top: 1px; }
+.timeline-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 9px;
+  cursor: ns-resize;
+}
+.timeline-resize::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 22px;
+  height: 3px;
+  margin-left: -11px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ev) 70%, transparent);
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.timeline-event:hover .timeline-resize::after,
+.timeline-event.is-dragging .timeline-resize::after { opacity: 1; }
+@media (hover: none) {
+  .timeline-resize { height: 14px; }
+  .timeline-resize::after { opacity: .8; }
+}
+.timeline-now {
+  position: absolute;
+  left: calc(var(--timeline-gutter) - 4px);
+  right: 0;
+  z-index: 3;
+  height: 2px;
+  background: var(--danger);
+  pointer-events: none;
+}
+.timeline-now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.timeline-tip { margin: 10px 0 0; color: var(--text-soft); font-size: .76rem; }
+
+/* ----------------------------------------------------------- note extras -- */
+.note-link { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; }
+.note-link-open {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: .82rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.note-link-open:hover { border-color: var(--brand); }
+
+.note-format {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.note-format button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: .9rem;
+  cursor: pointer;
+}
+.note-format button:hover { background: var(--surface-2); color: var(--text); }
+.note-format svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.note-format .note-preview-toggle { font-size: .82rem; font-weight: 650; }
+.note-format .note-preview-toggle.is-on { background: var(--brand-soft); color: var(--brand); }
+
+.note-rendered {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.markdown > :first-child { margin-top: 0; }
+.markdown h2 { margin: 1em 0 .4em; font-size: 1.3rem; }
+.markdown h3 { margin: 1em 0 .35em; font-size: 1.12rem; }
+.markdown h4 { margin: .9em 0 .3em; font-size: 1rem; }
+.markdown p { margin: 0 0 .75em; }
+.markdown ul, .markdown ol { margin: 0 0 .75em; padding-left: 1.4em; }
+.markdown blockquote {
+  margin: 0 0 .75em;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--line);
+  color: var(--text-soft);
+}
+.markdown code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88em;
+}
+.markdown pre {
+  overflow-x: auto;
+  margin: 0 0 .75em;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.markdown pre code { padding: 0; background: none; }
+.markdown hr { margin: 1em 0; border: 0; border-top: 1px solid var(--line); }
+.markdown a { color: var(--brand); }
+.md-checklist { padding-left: 0 !important; list-style: none; }
+.md-check { display: flex; align-items: flex-start; gap: 8px; }
+.md-check input { margin-top: .35em; width: 17px; height: 17px; accent-color: var(--brand); }
+.md-check.is-done > span { color: var(--text-soft); text-decoration: line-through; }
+.md-image {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: .4em 0 .8em;
+  border-radius: 10px;
+}
+span.md-image {
+  min-height: 80px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: .85rem;
+}
+span.md-image.is-loading { animation: md-pulse 1.2s ease-in-out infinite; }
+@keyframes md-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { span.md-image.is-loading { animation: none; } }
+
+/* ---------------------------------------------------------- file expiry -- */
+.expiry-card { margin: 12px 0 14px; padding: 14px; }
+.expiry-title { margin: 0 0 10px; font-size: .95rem; font-weight: 650; }
+.expiry-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.expiry-row.is-muted { opacity: .5; }
+.expiry-amount {
+  width: 96px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  font: inherit;
+  outline: none;
+}
+.expiry-amount:focus { border-color: var(--brand); }
+.expiry-row .segmented button:disabled { cursor: not-allowed; }
+.expiry-never { display: block; width: 100%; margin-top: 10px; }
+.expiry-never.is-on { border-color: transparent; background: var(--brand); color: var(--on-brand); }
+.expiry-summary { margin: 10px 0 0; }
+.expiry-summary.is-error { color: var(--danger); }

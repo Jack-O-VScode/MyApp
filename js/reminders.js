@@ -64,6 +64,23 @@ window.Reminders = (function () {
       });
     });
 
+    // --- a task with its own reminder time, on its due date ---------------
+    Store.allTasks({ openOnly: true }).forEach(function (task) {
+      if (!task.remindTime || !task.due || task.due < todayKey || task.due > lastKey) return;
+      var at = atTime(task.due, task.remindTime);
+      if (at <= now) return;
+      var steps = Store.subtaskProgress(task);
+      rows.push({
+        id: 'tk:' + task.id + ':' + task.due,
+        fire_at: at.toISOString(),
+        title: task.title || 'Task',
+        body: steps
+          ? (steps.total - steps.done) + ' of ' + steps.total + ' steps left'
+          : (task.details ? task.details.slice(0, 120) : 'Due today'),
+        url: '#tasks'
+      });
+    });
+
     // --- one daily digest rather than a ping per task ----------------------
     if (settings.digestOn) {
       for (var offset = 0; offset <= HORIZON_DAYS; offset++) {

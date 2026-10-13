@@ -28,8 +28,21 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   the arrows sit above the whole calendar, so every view can move.
 - Today is highlighted, weekends are shaded, and every event carries its colour
   through all five views and onto the home screen.
-- **Add event** for a title, date, optional time and details. Untimed events show
-  as "All day".
+- **Add event** for a title, date, optional start and end time, and details.
+  Untimed events show as "All day".
+- **Quick add**: type it the way you would say it — *Lunch with Sam fri 1pm*,
+  *Team sync 9:30-10:30 next tue*, *Gym every mon 7am until dec 20* — and press
+  Enter. The line under the box shows what it understood before you commit;
+  with no date in the text it goes on the day you have picked.
+- **Drag and drop**: in Week and Month, drag an event or a task chip onto
+  another day. **Day** is an hour-by-hour timeline: drag an event up or down to
+  change its time, or pull its bottom edge to change how long it runs, in
+  15-minute steps. Tap an empty hour to add something there. On a phone, hold
+  an event for a moment before dragging, so scrolling still scrolls. Dragging
+  one day of a repeating event moves only that day.
+- **Meeting notes**: open an event and press **Add notes** for a note tied to
+  it — to that day of it, for a repeating one. Events with notes show a 📝, and
+  the note links back to its event.
 - **Repeating events** — daily, weekly, monthly or yearly, with an optional end
   date. Editing or deleting one asks whether you mean *this day* or *the whole
   series*, so moving a single standup doesn't disturb the rest.
@@ -46,8 +59,14 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   fit is kept as the single day it starts on, and the app tells you how many.
 
 **Tasks**
-- Type in the quick-add box and press Enter, or use **New task** for a due date
-  and notes.
+- Type in the quick-add box and press Enter, or use **New task** for the full
+  editor. The box reads dates, repeats and priority out of what you type —
+  *Pay rent every month on the 1st !high*, *Call bank thu 2pm !!* — and shows
+  what it understood first. A time becomes the task's reminder.
+- **Priority** (Low, Medium, High — or `!low`, `!!`, `!!!` when typing),
+  **steps** to tick off inside a task, and a **reminder time** on the due date.
+  The row shows each, including how many steps are done.
+- **Sort** by due date, priority, or newest first.
 - Due-date shortcuts: Today, Tomorrow, Next week.
 - Overdue items are flagged in red; finished ones sink to the bottom and can be
   cleared in one go.
@@ -56,6 +75,14 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 
 **Notes**
 - Create, edit and delete notes; the editor saves as you type.
+- **Markdown**: `# heading`, `**bold**`, `*italic*`, `- lists`, `[links](https://…)`,
+  `> quotes` and code. A small bar inserts the common ones, and **Preview**
+  shows the note formatted — with checklist boxes you can tick right there.
+  Anything that looks like HTML is shown as text, never run.
+- **Pictures**: attach one with the picture button. It is shrunk if it is a
+  large photo, stored in your own sync project, and kept on the device once
+  seen, so it still shows offline. Needs sync to be on. Deleting the note
+  deletes its pictures.
 - **Pin** the ones you keep coming back to, and **tag** them — the tag chips
   above the list filter it.
 - A note left completely blank is discarded instead of cluttering the list.
@@ -93,8 +120,10 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 
 *Leave it for later* — up to 50 MB, no one has to be present
 - Drop a file and it waits in the bucket; another device collects it whenever.
-- Everything is deleted 24 hours after it is sent, collected or not, and
-  **Remove** clears one sooner.
+- **You choose how long it stays**: type a number and pick **Minutes**,
+  **Hours** or **Days** (24 hours to start with), or press **Never expire** to
+  keep it until you remove it. The choice is remembered on each device and
+  applies to what you send next. **Remove** clears a file sooner.
 - 50 MB is Supabase's per-object ceiling on the free plan and cannot be raised
   there, which is exactly why *Send to a device* exists.
 
@@ -566,11 +595,17 @@ notification arrives, the whole chain works.
 - **Save** downloads normally on Windows. On iPhone and iPad it opens the share
   sheet, so you can Save to Files, AirDrop it onward, or open it in another app.
 - Nothing is deleted automatically when you save it — with four devices, one
-  collecting a file should not snatch it from the rest. Everything expires 24
-  hours after being sent, and the list sweeps stale files whenever it loads.
+  collecting a file should not snatch it from the rest. Each file carries its
+  expiry in its own name, so there is no table to keep in step, and the list
+  sweeps expired files whenever any device opens it. A file that expires while
+  no device is open goes the next time one does.
+- **Never expire** files stay until you press Remove, and count against the
+  1 GB of storage on the free plan the whole time.
 - Files are encrypted in transit and sit in your own project, but they are not
   end-to-end encrypted: someone with access to your Supabase dashboard could
-  read them within that 24-hour window.
+  read them until they are deleted.
+- Pictures attached to notes live in the same bucket, in a `notes/` folder of
+  their own; the list here leaves them alone.
 
 ## Where the data lives
 
@@ -597,8 +632,13 @@ js/store.js             data layer: events, tasks, notes, recurrence, search
 js/ics.js               reads .ics calendar files: folding, escapes, zones, rules
 js/format.js            clock times, in whichever format App settings asks for
 js/calendar.js          day, week, month, year and agenda views, event editor
+js/timeline.js          Day-view arithmetic: block positions, overlaps, moves
+js/drag.js              mouse/touch drag gesture shared by the calendar views
+js/quickparse.js        reads "lunch fri 1pm" into a date, time, repeat, priority
 js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
+js/markdown.js          safe Markdown rendering for notes
+js/attachments.js       pictures in notes: upload, shrink, offline cache
 js/today.js             the Today screen and cross-app search
 js/zones.js             the city list behind the Timezones screen
 js/clocks.js            the Timezones screen: search, pinning, live clocks
@@ -618,7 +658,26 @@ icons/                  generated PNG icons (Windows tiles, iOS home screen)
 tools/make_icons.py     regenerates icons/ and the manifest — run after editing
                         the artwork or DEFAULT_THEME
 tools/serve.js          zero-dependency static server for local use
+tools/check.js          every script parses and is in the offline cache
+tests/                  unit tests, run with Node's built-in test runner
+.github/workflows/      runs the checks and tests on every push
 ```
+
+## Tests
+
+The tests need nothing but [Node.js](https://nodejs.org) 21 or newer — no
+`npm install`. They load the app's real scripts into a sandbox and check the
+parts that are easy to get subtly wrong: repeating events, sync round trips,
+the quick-add reader, Markdown escaping, the timeline maths, file expiry,
+`.ics` import and the reminder schedule.
+
+```
+npm test          # the unit tests
+npm run check     # every script parses, and every script is in sw.js
+```
+
+GitHub runs both on every push (see the **Actions** tab), so a change that
+breaks something shows up as a red cross before it reaches your phone.
 
 After changing any cached file, bump `CACHE` in `sw.js` so installed copies pick
 the update up.
