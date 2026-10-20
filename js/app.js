@@ -768,6 +768,115 @@
     });
   }
 
+  /* --------------------------------------------------- delete a range -- */
+
+  // For undoing an import that landed the wrong calendar, or clearing out a
+  // holiday's worth of plans. Counts before it deletes, and keeps an Undo for
+  // as long as the dialog stays open.
+  var clearEls = {};
+  var clearUndo = null;
+
+  function clearOptions() {
+    return { importedOnly: clearEls.imported.checked };
+  }
+
+  function plural(count, word) {
+    return count + ' ' + word + (count === 1 ? '' : 's');
+  }
+
+  function renderClearCount() {
+    var from = clearEls.from.value;
+    var to = clearEls.to.value;
+    clearEls.count.classList.remove('is-error');
+    if (!Store.isKey(from) || !Store.isKey(to)) {
+      clearEls.count.textContent = 'Pick both dates.';
+      clearEls.confirm.disabled = true;
+      return;
+    }
+    if (from > to) {
+      clearEls.count.textContent = 'The first date has to come before the last.';
+      clearEls.count.classList.add('is-error');
+      clearEls.confirm.disabled = true;
+      return;
+    }
+    var found = Store.countEventsInRange(from, to, clearOptions());
+    clearEls.confirm.disabled = !found.total;
+    if (!found.total) {
+      clearEls.count.textContent = 'Nothing on the calendar in those dates.';
+      return;
+    }
+    var parts = [];
+    if (found.imported) parts.push(found.imported + ' imported');
+    if (found.own) parts.push(found.own + ' you added');
+    clearEls.count.textContent = plural(found.total, 'event') + ' will go' +
+      (parts.length > 1 ? ' (' + parts.join(', ') + ')' : '') + '.';
+    clearEls.confirm.textContent = 'Delete ' + plural(found.total, 'event');
+  }
+
+  function openClearRange() {
+    var today = Store.todayKey();
+    if (!clearEls.from.value) clearEls.from.value = today;
+    if (!clearEls.to.value) clearEls.to.value = Store.shiftKey(today, 30);
+    clearUndo = null;
+    clearEls.undo.hidden = true;
+    renderClearCount();
+    clearEls.modal.hidden = false;
+    clearEls.from.focus();
+  }
+
+  function closeClearRange() {
+    clearEls.modal.hidden = true;
+    clearUndo = null;
+  }
+
+  function setupClearRange() {
+    clearEls = {
+      modal: document.getElementById('clear-modal'),
+      from: document.getElementById('clear-from'),
+      to: document.getElementById('clear-to'),
+      imported: document.getElementById('clear-imported'),
+      count: document.getElementById('clear-count'),
+      confirm: document.getElementById('clear-confirm'),
+      undo: document.getElementById('clear-undo')
+    };
+    [clearEls.from, clearEls.to, clearEls.imported].forEach(function (input) {
+      input.addEventListener('input', renderClearCount);
+      input.addEventListener('change', renderClearCount);
+    });
+
+    clearEls.confirm.addEventListener('click', function () {
+      var from = clearEls.from.value;
+      var to = clearEls.to.value;
+      var found = Store.countEventsInRange(from, to, clearOptions());
+      if (!found.total) return;
+      if (!window.confirm('Delete ' + plural(found.total, 'event') + ' from ' + from + ' to ' + to +
+          '? This removes them on every synced device.')) return;
+      var result = Store.deleteEventsInRange(from, to, clearOptions());
+      clearUndo = result.snapshot;
+      renderClearCount();
+      clearEls.count.textContent = 'Deleted ' + plural(result.removed, 'event') +
+        '. Changed your mind? Undo works until you close this.';
+      clearEls.undo.hidden = !clearUndo.length;
+      toast('Deleted ' + plural(result.removed, 'event'));
+    });
+
+    clearEls.undo.addEventListener('click', function () {
+      if (!clearUndo) return;
+      Store.undoEventRange(clearUndo);
+      clearUndo = null;
+      clearEls.undo.hidden = true;
+      renderClearCount();
+      toast('Put back');
+    });
+
+    Array.prototype.forEach.call(clearEls.modal.querySelectorAll('[data-clear-close]'), function (button) {
+      button.addEventListener('click', closeClearRange);
+    });
+    clearEls.modal.addEventListener('mousedown', function (clickEvent) {
+      if (clickEvent.target === clearEls.modal) closeClearRange();
+    });
+  }
+
   /* ----------------------------------------------------------- appearance -- */
 
   // Appearance is a synced setting, so it can change without anyone touching
@@ -835,6 +944,9 @@
       case 'import-ics':
         openIcsImport();
         break;
+      case 'clear-range':
+        openClearRange();
+        break;
       case 'install':
         if (!installPrompt) return;
         installPrompt.prompt();
@@ -871,6 +983,7 @@
     setupSync();
     setupReminders();
     setupIcsImport();
+    setupClearRange();
     setupNotes();
     considerNotes();
 
@@ -912,6 +1025,7 @@
       else if (!remEls.modal.hidden) remEls.modal.hidden = true;
       else if (!notesEls.modal.hidden) notesEls.modal.hidden = true;
       else if (!icsEls.modal.hidden) icsEls.modal.hidden = true;
+      else if (!clearEls.modal.hidden) closeClearRange();
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
       else if (TasksView.isModalOpen()) TasksView.closeModal();
       else if (NotesView.isEditorOpen()) NotesView.closeEditor();

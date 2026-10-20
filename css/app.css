@@ -1077,7 +1077,10 @@ main {
   resize: vertical;
 }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--brand); }
-.field-row { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.field-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* Date and time inputs carry a wide built-in minimum on phones; without this
+   the second of a pair runs off the edge of the dialog. */
+.field-row > .field, .field input[type="date"], .field input[type="time"] { min-width: 0; }
 
 .form-error { margin: 0 0 12px; color: var(--danger); font-size: .88rem; }
 

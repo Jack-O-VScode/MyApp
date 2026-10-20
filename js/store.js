@@ -445,6 +445,93 @@ window.Store = (function () {
     remove('event', id);
   }
 
+  /* --------------------------------------------------- clearing a range -- */
+
+  // Events from a .ics import carry ids derived from the file ('ics-…').
+  function isImported(master) {
+    return master.id.indexOf('ics-') === 0;
+  }
+
+  function rangeTargets(from, to, options) {
+    var importedOnly = !!(options && options.importedOnly);
+    return live(state.events).filter(function (master) {
+      if (importedOnly && !isImported(master)) return false;
+      return occurrencesOf(master, from, to).length > 0;
+    });
+  }
+
+  // What clearing [from, to] would remove, counted as days on the calendar.
+  function countEventsInRange(from, to, options) {
+    var out = { total: 0, imported: 0, own: 0 };
+    if (!isKey(from) || !isKey(to) || from > to) return out;
+    rangeTargets(from, to, options).forEach(function (master) {
+      var count = occurrencesOf(master, from, to).length;
+      out.total += count;
+      if (isImported(master)) out.imported += count;
+      else out.own += count;
+    });
+    return out;
+  }
+
+  // Removes every event on the calendar from `from` to `to`, both included.
+  // A repeating event is only cut where it falls inside the range: days before
+  // and after it stay. Hands back a snapshot that undoEventRange can restore.
+  function deleteEventsInRange(from, to, options) {
+    var result = { removed: 0, snapshot: [] };
+    if (!isKey(from) || !isKey(to) || from > to) return result;
+
+    rangeTargets(from, to, options).forEach(function (master) {
+      var inside = occurrencesOf(master, from, to);
+      result.removed += inside.length;
+      result.snapshot.push(JSON.parse(JSON.stringify(master)));
+
+      if (!master.repeat) {
+        master.deleted = true;
+        touch(master);
+        return;
+      }
+      var before = master.date < from;
+      // The first day of the series after the range, if it has one.
+      var after = occurrencesOf(master, shiftKey(to, 1), master.repeatUntil || shiftKey(to, 3700))[0];
+
+      if (!before && !after) {
+        master.deleted = true;
+      } else if (!before) {
+        // Starts inside the range: start it again on its first day after.
+        master.date = after.date;
+        master.skips = master.skips.filter(function (key) { return key > after.date; });
+      } else if (!after) {
+        // Ends inside the range: end it the day before.
+        master.repeatUntil = shiftKey(from, -1);
+      } else {
+        // Runs straight through: skip just the days inside.
+        inside.forEach(function (item) {
+          if (master.skips.indexOf(item.date) === -1) master.skips.push(item.date);
+        });
+      }
+      touch(master);
+    });
+
+    if (result.snapshot.length) commit();
+    return result;
+  }
+
+  // Puts back exactly what a range delete changed.
+  function undoEventRange(snapshot) {
+    var restored = 0;
+    (snapshot || []).forEach(function (saved) {
+      for (var i = 0; i < state.events.length; i++) {
+        if (state.events[i].id !== saved.id) continue;
+        state.events[i] = normalise(Object.assign({}, saved, { deleted: false }), 'event');
+        touch(state.events[i]);
+        restored++;
+        return;
+      }
+    });
+    if (restored) commit();
+    return restored;
+  }
+
   // Drag and drop: a new day and/or clock time for an event, leaving the rest
   // of it alone. Moving one day of a series moves only that day, the way a
   // single standup gets dragged without dragging every other one with it.
@@ -1182,6 +1269,9 @@ window.Store = (function () {
     saveEvent: saveEvent,
     deleteEvent: deleteEvent,
     moveEvent: moveEvent,
+    countEventsInRange: countEventsInRange,
+    deleteEventsInRange: deleteEventsInRange,
+    undoEventRange: undoEventRange,
     isTime: isTime,
     getEvent: function (id) { return find('event', id); },
     allTasks: allTasks,

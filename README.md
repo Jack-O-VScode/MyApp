@@ -54,6 +54,11 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   will not turn up here. Importing the same file again updates what is already
   here rather than making a second copy, because events are matched on the
   file's own IDs.
+- **Delete events in a date range** (in the menu) clears everything from one
+  day to another — the way out of importing the wrong calendar. It counts what
+  will go before anything does, can be limited to imported events only, and
+  offers **Undo** until you close it. A repeating event is only cut where it
+  falls in the range.
 - The `.ics` repeat format says far more than this app stores — "the third
   Thursday of every month" has nowhere to live here — so anything that does not
   fit is kept as the single day it starts on, and the app tells you how many.

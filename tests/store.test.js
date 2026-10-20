@@ -170,3 +170,39 @@ test('checklist progress counts ticked lines', () => {
   assert.deepEqual(plain(Store.checklistProgress('- [x] a\n- [ ] b\nplain')), { done: 1, total: 2 });
   assert.equal(Store.checklistProgress('nothing here'), null);
 });
+
+test('clearing a range removes one-off events inside it and nothing outside', () => {
+  const Store = fresh();
+  Store.saveEvent({ title: 'before', date: '2026-10-01' });
+  Store.saveEvent({ title: 'inside', date: '2026-10-10' });
+  Store.saveEvent({ title: 'edge', date: '2026-10-20' });
+  Store.saveEvent({ title: 'after', date: '2026-10-21' });
+  assert.equal(Store.deleteEventsInRange('2026-10-05', '2026-10-20').removed, 2);
+  assert.deepEqual(plain(Store.eventsInRange('2026-01-01', '2026-12-31')).map((e) => e.title), ['before', 'after']);
+});
+
+test('clearing a range cuts repeating events only where they fall inside it', () => {
+  const Store = fresh();
+  Store.saveEvent({ title: 'through', date: '2026-10-01', repeat: 'daily', repeatUntil: '2026-10-31' });
+  Store.saveEvent({ title: 'starts', date: '2026-10-12', repeat: 'weekly' });
+  Store.saveEvent({ title: 'ends', date: '2026-09-01', repeat: 'daily', repeatUntil: '2026-10-12' });
+  Store.saveEvent({ title: 'inside', date: '2026-10-11', repeat: 'daily', repeatUntil: '2026-10-13' });
+  Store.deleteEventsInRange('2026-10-10', '2026-10-15');
+  const inRange = plain(Store.eventsInRange('2026-10-10', '2026-10-15'));
+  assert.equal(inRange.length, 0);
+  const titles = (day) => plain(Store.eventsOn(day)).map((e) => e.title).sort();
+  assert.deepEqual(titles('2026-10-09'), ['ends', 'through']);
+  assert.deepEqual(titles('2026-10-16'), ['through']);
+  assert.deepEqual(titles('2026-10-19'), ['starts', 'through']);
+});
+
+test('only imported events can be cleared, and a clear can be undone', () => {
+  const Store = fresh();
+  Store.importEvents([{ uid: 'ics:1', title: 'Imported', date: '2026-10-10' }]);
+  Store.saveEvent({ title: 'Mine', date: '2026-10-10' });
+  assert.deepEqual(plain(Store.countEventsInRange('2026-10-01', '2026-10-31', {})), { total: 2, imported: 1, own: 1 });
+  const result = Store.deleteEventsInRange('2026-10-01', '2026-10-31', { importedOnly: true });
+  assert.deepEqual(plain(Store.eventsOn('2026-10-10')).map((e) => e.title), ['Mine']);
+  Store.undoEventRange(result.snapshot);
+  assert.deepEqual(plain(Store.eventsOn('2026-10-10')).map((e) => e.title).sort(), ['Imported', 'Mine']);
+});

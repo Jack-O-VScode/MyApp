@@ -9,6 +9,13 @@
 */
 window.CHANGELOG = [
   {
+    version: 28, date: '2026-10-20', title: 'Clearing out a date range',
+    changes: [
+      { kind: 'new', text: 'Delete events in a date range, from the menu. Pick the first and last day, see how many events that is before anything goes, and tick “Only events that came from an imported calendar” to leave your own alone — handy if you imported the wrong one.' },
+      { kind: 'new', text: 'Changed your mind? Undo puts everything back, as long as the window is still open.' }
+    ]
+  },
+  {
     version: 27, date: '2026-10-13', title: 'Patch notes, first thing',
     changes: [
       { kind: 'better', text: 'After an update, these notes are the first thing you see when the app opens — every update, on every device, once. Close them with the X.' },
