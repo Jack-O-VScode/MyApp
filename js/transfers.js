@@ -7,12 +7,16 @@
    The bucket itself is the list — there is no metadata table to drift out of
    step with it. Each object is keyed
 
-       <user id>/<timestamp>-<random>-e<expiry>__<file name>
+       <user id>/<timestamp>-<random>-e<expiry>[-f<count>]__<file name>
 
    which is what lets row-level security scope a folder to its owner, and what
    carries the original file name, its age and when it goes without a second
    lookup. <expiry> is the instant in milliseconds, or "never". Files sent
    before expiry was choosable have no -e part and keep their 24 hours.
+
+   A folder travels as one .zip made on the sending device (js/zip.js), with
+   -f<count> saying how many files are inside so the list can say "Folder".
+   Every OS opens a zip back into the folder with a tap.
 */
 window.TransfersView = (function () {
   'use strict';
@@ -24,6 +28,9 @@ window.TransfersView = (function () {
   var UNIT_MAX = { minute: 525600, hour: 87600, day: 3650 };   // ten years, whichever way
   var expiry = { amount: 24, unit: 'hour', never: false };
   var SIZE_WARNING = 50 * 1024 * 1024;   // the default per-file cap on a new bucket
+  // A folder bigger than this before zipping will not squeeze under the cap,
+  // and zipping it would only tie the device up finding that out.
+  var FOLDER_RAW_CAP = 4 * SIZE_WARNING;
   var POLL = 20000;
 
   var els = {};
@@ -150,17 +157,21 @@ window.TransfersView = (function () {
   // stamp", for the older keys that do not say.
   function parseKey(fileName) {
     var split = fileName.indexOf('__');
-    if (split === -1) return { name: fileName, stamp: 0, expiresAt: 0 };
+    if (split === -1) return { name: fileName, stamp: 0, expiresAt: 0, files: 0 };
     var parts = fileName.slice(0, split).split('-');
     var stamp = Number(parts[0]) || 0;
     var expiresAt = stamp ? stamp + MAX_AGE : 0;
-    var mark = parts[2] || '';
-    if (mark === 'enever') expiresAt = null;
-    else if (/^e\d+$/.test(mark)) expiresAt = Number(mark.slice(1));
+    var files = 0;
+    parts.slice(2).forEach(function (mark) {
+      if (mark === 'enever') expiresAt = null;
+      else if (/^e\d+$/.test(mark)) expiresAt = Number(mark.slice(1));
+      else if (/^f\d+$/.test(mark)) files = Number(mark.slice(1));
+    });
     return {
       name: fileName.slice(split + 2) || fileName,
       stamp: stamp,
-      expiresAt: expiresAt
+      expiresAt: expiresAt,
+      files: files
     };
   }
 
@@ -236,6 +247,7 @@ window.TransfersView = (function () {
             name: parsed.name,
             stamp: stamp,
             expiresAt: parsed.expiresAt === 0 ? stamp + MAX_AGE : parsed.expiresAt,
+            files: parsed.files,
             size: (row.metadata && row.metadata.size) || 0
           };
         });
@@ -244,10 +256,12 @@ window.TransfersView = (function () {
   }
 
   // XHR rather than fetch: only XHR reports upload progress.
-  function upload(file, expiresAt, onProgress) {
+  // `folderFiles` is how many files a zipped folder holds; 0 for a plain file.
+  function upload(file, expiresAt, onProgress, folderFiles) {
     return Sync.authorized().then(function (auth) {
       var key = auth.userId + '/' + Date.now() + '-' +
         Math.random().toString(36).slice(2, 7) + '-' + expiryMark(expiresAt) +
+        (folderFiles ? '-f' + folderFiles : '') +
         '__' + safeName(file.name);
 
       // multipart/form-data, matching what the official Supabase client sends
@@ -339,7 +353,7 @@ window.TransfersView = (function () {
       meta.className = 'transfer-meta';
       meta.textContent = job.error
         ? job.error
-        : 'Sending… ' + Math.round(job.progress * 100) + '%';
+        : (job.zipping ? 'Zipping… ' : 'Sending… ') + Math.round(job.progress * 100) + '%';
       body.appendChild(name);
       body.appendChild(meta);
 
@@ -378,8 +392,11 @@ window.TransfersView = (function () {
       name.textContent = item.name;
       var meta = document.createElement('span');
       meta.className = 'transfer-meta';
-      meta.textContent = [formatSize(item.size), formatAge(item.stamp), expiresIn(item.expiresAt)]
-        .filter(Boolean).join(' · ');
+      if (item.files) row.classList.add('is-folder');
+      meta.textContent = [
+        item.files ? 'Folder · ' + plural(item.files, 'file') : '',
+        formatSize(item.size), formatAge(item.stamp), expiresIn(item.expiresAt)
+      ].filter(Boolean).join(' · ');
       body.appendChild(name);
       body.appendChild(meta);
 
@@ -444,6 +461,28 @@ window.TransfersView = (function () {
     });
   }
 
+  // When what is sent now expires, or undefined (with the reason on screen)
+  // when the typed amount is not usable. Worked out once, as things go: "an
+  // hour" means an hour from now.
+  function chosenExpiry() {
+    if (expiry.never) return null;
+    var span = lifetime(els.expiryAmount.value, expiry.unit);
+    if (span.error) {
+      setMessage(span.error, true);
+      els.expiryAmount.focus();
+      return undefined;
+    }
+    return Date.now() + span.ms;
+  }
+
+  function dropJob(job, delay) {
+    setTimeout(function () {
+      var at = uploads.indexOf(job);
+      if (at !== -1) uploads.splice(at, 1);
+      renderUploads();
+    }, delay || 0);
+  }
+
   function send(files) {
     if (!files || !files.length) return;
     var oversized = Array.prototype.filter.call(files, function (file) {
@@ -457,17 +496,8 @@ window.TransfersView = (function () {
         'Storage → Buckets, or send something smaller.', true);
       return;
     }
-    // Worked out once, as the files go: "an hour" means an hour from now.
-    var expiresAt = null;
-    if (!expiry.never) {
-      var span = lifetime(els.expiryAmount.value, expiry.unit);
-      if (span.error) {
-        setMessage(span.error, true);
-        els.expiryAmount.focus();
-        return;
-      }
-      expiresAt = Date.now() + span.ms;
-    }
+    var expiresAt = chosenExpiry();
+    if (expiresAt === undefined) return;
     setMessage('');
 
     Array.prototype.forEach.call(files, function (file) {
@@ -491,6 +521,150 @@ window.TransfersView = (function () {
         }, 6000);
       });
     });
+  }
+
+  /* --------------------------------------------------------------- folders -- */
+
+  // A folder is zipped here, then sent like any file. The size limit applies
+  // to the zip, since that is what is stored.
+  function sendFolder(folder) {
+    var files = folder.entries.filter(function (entry) { return entry.file; });
+    if (!files.length) {
+      setMessage('“' + folder.name + '” is empty — there is nothing in it to send.', true);
+      return;
+    }
+    var raw = files.reduce(function (sum, entry) { return sum + entry.file.size; }, 0);
+    if (raw > FOLDER_RAW_CAP) {
+      setMessage('“' + folder.name + '” holds ' + formatSize(raw) + ' in ' + plural(files.length, 'file') +
+        ' — far past the 50 MB a stored file can be, even zipped. Zip it yourself and use ' +
+        '“Send to a device” above, which has no limit, or send part of it.', true);
+      return;
+    }
+    var expiresAt = chosenExpiry();
+    if (expiresAt === undefined) return;
+    setMessage('');
+
+    var zipName = folder.name + '.zip';
+    var job = { name: zipName, progress: 0, error: '', zipping: true };
+    uploads.push(job);
+    renderUploads();
+
+    Zip.build(folder.entries, {
+      onProgress: function (fraction) {
+        job.progress = fraction;
+        renderUploads();
+      }
+    }).then(function (blob) {
+      if (blob.size > SIZE_WARNING) {
+        dropJob(job);
+        setMessage('Zipped, “' + folder.name + '” comes to ' + formatSize(blob.size) +
+          ' — over the 50 MB a stored file can be on the free plan. Send part of it, or zip it ' +
+          'and use “Send to a device” above, which has no limit.', true);
+        return null;
+      }
+      job.zipping = false;
+      job.progress = 0;
+      renderUploads();
+      var zipped = new File([blob], zipName, { type: 'application/zip', lastModified: Date.now() });
+      return upload(zipped, expiresAt, function (fraction) {
+        job.progress = fraction;
+        renderUploads();
+      }, files.length).then(function () {
+        dropJob(job);
+        return refresh(true);
+      });
+    }).catch(function (err) {
+      job.error = friendlyError(err);
+      renderUploads();
+      dropJob(job, 6000);
+    });
+  }
+
+  // From the folder picker: every file knows its path from the folder down.
+  function folderFromPicked(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return null;
+    var root = String(files[0].webkitRelativePath || files[0].name).split('/')[0] || 'Folder';
+    return {
+      name: root,
+      entries: files.map(function (file) {
+        return {
+          path: file.webkitRelativePath || (root + '/' + file.name),
+          file: file,
+          lastModified: file.lastModified
+        };
+      })
+    };
+  }
+
+  // A directory reader hands entries over in batches; ask until it runs dry.
+  function readAll(reader) {
+    var all = [];
+    return new Promise(function (resolve, reject) {
+      (function next() {
+        reader.readEntries(function (batch) {
+          if (!batch.length) return resolve(all);
+          all = all.concat(Array.prototype.slice.call(batch));
+          next();
+        }, reject);
+      })();
+    });
+  }
+
+  function fileOf(entry) {
+    return new Promise(function (resolve, reject) { entry.file(resolve, reject); });
+  }
+
+  // Everything under a dropped folder, subfolders included. Empty folders are
+  // kept too, so what unzips is the same shape that was sent.
+  function walk(entry) {
+    var path = entry.fullPath.replace(/^\/+/, '');
+    if (entry.isFile) {
+      return fileOf(entry).then(function (file) {
+        return [{ path: path, file: file, lastModified: file.lastModified }];
+      });
+    }
+    return readAll(entry.createReader()).then(function (children) {
+      if (!children.length) return [{ path: path, file: null }];
+      return Promise.all(children.map(walk)).then(function (nested) {
+        return [].concat.apply([], nested);
+      });
+    });
+  }
+
+  // A drop can mix files and folders. Entries must be taken during the drop
+  // event itself — the browser empties the list as soon as it returns.
+  function handleDrop(transfer) {
+    var items = Array.prototype.slice.call(transfer.items || []);
+    var entries = items.map(function (item) {
+      return item.kind === 'file' && item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+    }).filter(Boolean);
+
+    if (!entries.length) {
+      if (transfer.files && transfer.files.length) send(transfer.files);
+      return;
+    }
+
+    var loose = entries.filter(function (entry) { return entry.isFile; });
+    if (loose.length) {
+      Promise.all(loose.map(fileOf)).then(send, function (err) {
+        setMessage(friendlyError(err), true);
+      });
+    }
+    entries.filter(function (entry) { return entry.isDirectory; }).forEach(function (entry) {
+      walk(entry).then(function (found) {
+        sendFolder({ name: entry.name, entries: found });
+      }, function () {
+        setMessage('“' + entry.name + '” could not be read — try Choose a folder instead.', true);
+      });
+    });
+  }
+
+  // iPhone and iPad have no way to pick a folder from a web page.
+  function folderPickingWorks() {
+    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return !ios && 'webkitdirectory' in document.createElement('input');
   }
 
   function handleClick(clickEvent) {
@@ -587,6 +761,19 @@ window.TransfersView = (function () {
     document.getElementById('transfer-pick').addEventListener('click', function () {
       els.input.click();
     });
+
+    var folderInput = document.getElementById('transfer-folder');
+    var folderButton = document.getElementById('transfer-pick-folder');
+    var canPickFolders = folderPickingWorks();
+    folderButton.hidden = !canPickFolders;
+    document.getElementById('transfer-folder-tip').hidden = canPickFolders;
+    folderButton.addEventListener('click', function () { folderInput.click(); });
+    folderInput.addEventListener('change', function () {
+      var folder = folderFromPicked(this.files);
+      this.value = '';
+      if (folder) sendFolder(folder);
+      else setMessage('That folder is empty — there is nothing in it to send.', true);
+    });
     document.getElementById('transfer-refresh').addEventListener('click', function () {
       refresh(false);
     });
@@ -606,9 +793,7 @@ window.TransfersView = (function () {
       });
     });
     els.drop.addEventListener('drop', function (dropEvent) {
-      if (dropEvent.dataTransfer && dropEvent.dataTransfer.files.length) {
-        send(dropEvent.dataTransfer.files);
-      }
+      if (dropEvent.dataTransfer) handleDrop(dropEvent.dataTransfer);
     });
 
     Sync.subscribe(function () {
@@ -624,6 +809,7 @@ window.TransfersView = (function () {
     },
     // Exposed for the tests.
     _parseKey: parseKey,
+    _folderFromPicked: folderFromPicked,
     _lifetime: lifetime,
     _expiresIn: expiresIn
   };

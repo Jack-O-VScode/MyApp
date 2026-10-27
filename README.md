@@ -125,6 +125,15 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
 
 *Leave it for later* — up to 50 MB, no one has to be present
 - Drop a file and it waits in the bucket; another device collects it whenever.
+- **Folders** too: drag one onto the drop area, or press **Choose a folder**.
+  It is zipped into a single `.zip` on the sending device — subfolders, empty
+  folders and non-English names included — and is listed as *Folder · N files*.
+  Saving it gives the `.zip`, which Windows, macOS and the iPhone's Files app
+  all open back into the folder with a tap. The 50 MB limit is on the zip, so
+  text and documents often fit when the folder itself is bigger; photos and
+  videos are already compressed and come out about the same size.
+- iPhone and iPad have no way to pick a folder from a web page. There, compress
+  the folder in Files (press and hold → **Compress**) and send the `.zip`.
 - **You choose how long it stays**: type a number and pick **Minutes**,
   **Hours** or **Days** (24 hours to start with), or press **Never expire** to
   keep it until you remove it. The choice is remembered on each device and
@@ -644,6 +653,7 @@ js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
 js/markdown.js          safe Markdown rendering for notes
 js/attachments.js       pictures in notes: upload, shrink, offline cache
+js/zip.js               packs a folder into one .zip in the browser
 js/today.js             the Today screen and cross-app search
 js/zones.js             the city list behind the Timezones screen
 js/clocks.js            the Timezones screen: search, pinning, live clocks

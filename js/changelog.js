@@ -9,6 +9,14 @@
 */
 window.CHANGELOG = [
   {
+    version: 29, date: '2026-10-27', title: 'Send a whole folder',
+    changes: [
+      { kind: 'new', text: 'Leave a whole folder for your other devices to collect: drag it onto Transfer, or press Choose a folder. It is zipped into one file on the way — subfolders and all — and opens back into the same folder with a tap on Windows, Mac, iPhone or iPad.' },
+      { kind: 'better', text: 'The 50 MB limit applies to the zipped folder, so text and documents often fit even when the folder itself is bigger. Waiting folders show as “Folder · 12 files”.' },
+      { kind: 'better', text: 'iPhone and iPad cannot pick a folder from a web page, so Transfer says how to do it there instead: Compress it in Files, then send the .zip.' }
+    ]
+  },
+  {
     version: 28, date: '2026-10-20', title: 'Clearing out a date range',
     changes: [
       { kind: 'new', text: 'Delete events in a date range, from the menu. Pick the first and last day, see how many events that is before anything goes, and tick “Only events that came from an imported calendar” to leave your own alone — handy if you imported the wrong one.' },

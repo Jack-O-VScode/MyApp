@@ -333,10 +333,17 @@
       <div id="transfer-drop" class="dropzone">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
         <p><strong>Leave a file for the others to collect</strong></p>
-        <p class="dropzone-hint">Up to 50 MB. It waits for as long as you choose below,
-          whether anyone fetches it or not. Drag it here, or</p>
-        <button id="transfer-pick" class="button primary" type="button">Choose files</button>
+        <p class="dropzone-hint">Up to 50 MB. A folder is zipped into one file first,
+          and opens back into the folder on the other side. It waits for as long as you
+          choose below, whether anyone fetches it or not. Drag files or a folder here, or</p>
+        <div class="dropzone-actions">
+          <button id="transfer-pick" class="button primary" type="button">Choose files</button>
+          <button id="transfer-pick-folder" class="button" type="button" hidden>Choose a folder</button>
+        </div>
         <input id="transfer-file" type="file" multiple hidden>
+        <input id="transfer-folder" type="file" webkitdirectory multiple hidden>
+        <p id="transfer-folder-tip" class="dropzone-hint" hidden>To send a folder from an iPhone
+          or iPad: in Files, press and hold it, tap <strong>Compress</strong>, then send the .zip.</p>
       </div>
 
       <section class="card expiry-card" aria-labelledby="expiry-title">
@@ -1040,6 +1047,7 @@ create index if not exists reminders_pending
 <script src="js/timeline.js"></script>
 <script src="js/drag.js"></script>
 <script src="js/attachments.js"></script>
+<script src="js/zip.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/notes.js"></script>

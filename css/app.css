@@ -791,6 +791,9 @@ main {
 .dropzone svg { width: 30px; height: 30px; color: var(--brand); }
 .dropzone p { margin: 0; }
 .dropzone-hint { color: var(--text-soft); font-size: .88rem; margin-bottom: 6px !important; }
+.dropzone-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+#transfer-folder-tip { margin: 8px 0 0 !important; font-size: .8rem; }
+.transfer-item.is-folder .transfer-name::before { content: "📁 "; }
 
 .transfer-message {
   margin: 0 0 14px;
