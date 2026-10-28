@@ -10,6 +10,7 @@ window.BeamView = (function () {
   var els = {};
   var target = null;
   var hint = '';
+  var zipping = null;      // { name, files, progress } while a folder is packed
 
   /* --------------------------------------------------------------- format -- */
 
@@ -86,10 +87,14 @@ window.BeamView = (function () {
 
     els.none.hidden = awake.length > 0;
     els.devices.hidden = awake.length === 0;
-    els.pick.disabled = !target;
-    els.hint.textContent = hint || (target
-      ? 'Any size. ' + target.name + ' has to stay open until it finishes.'
-      : '');
+    els.pick.disabled = !target || !!zipping;
+    els.pickFolder.disabled = !target || !!zipping;
+    els.hint.textContent = zipping
+      ? 'Zipping “' + zipping.name + '” (' + zipping.files + ' file' + (zipping.files === 1 ? '' : 's') +
+        ') — ' + Math.round(zipping.progress * 100) + '%'
+      : (hint || (target
+        ? 'Any size — a file or a whole folder. ' + target.name + ' has to stay open until it finishes.'
+        : ''));
   }
 
   /* ----------------------------------------------------------------- jobs -- */
@@ -271,14 +276,47 @@ window.BeamView = (function () {
 
   /* ---------------------------------------------------------------- wiring -- */
 
-  function chooseFile(file) {
-    if (!file || !target) return;
+  // `to` is fixed when the file was chosen: picking another device while a
+  // folder is still zipping must not redirect it.
+  function chooseFile(file, to) {
+    var peer = to || target;
+    if (!file || !peer) return;
     hint = '';
-    Beam.offer(file, target).then(function () {
-      hint = 'Offered to ' + target.name + '. Say Ready on both to start.';
+    Beam.offer(file, peer).then(function () {
+      hint = 'Offered to ' + peer.name + '. Say Ready on both to start.';
       render();
     }).catch(function (err) {
       hint = err.message;
+      render();
+    });
+  }
+
+  // A folder goes as one .zip, packed here first. No size limit: this route
+  // never stores the file, and the zip switches to ZIP64 past 4 GB.
+  function chooseFolder(folder) {
+    var peer = target;
+    if (!peer) return;
+    var files = folder ? Folders.fileCount(folder) : 0;
+    if (!files) {
+      hint = 'That folder is empty — there is nothing in it to send.';
+      render();
+      return;
+    }
+    zipping = { name: folder.name, files: files, progress: 0 };
+    render();
+    Zip.build(folder.entries, {
+      onProgress: function (fraction) {
+        if (!zipping) return;
+        zipping.progress = fraction;
+        renderDevices();
+      }
+    }).then(function (blob) {
+      zipping = null;
+      var zipped = new File([blob], folder.name + '.zip', { type: 'application/zip', lastModified: Date.now() });
+      chooseFile(zipped, peer);
+    }).catch(function (err) {
+      zipping = null;
+      hint = (err && err.message) || 'That folder could not be zipped.';
       render();
     });
   }
@@ -289,6 +327,8 @@ window.BeamView = (function () {
     els.none = document.getElementById('beam-none');
     els.pick = document.getElementById('beam-pick');
     els.file = document.getElementById('beam-file');
+    els.pickFolder = document.getElementById('beam-pick-folder');
+    els.folder = document.getElementById('beam-folder');
     els.hint = document.getElementById('beam-hint');
     els.incoming = document.getElementById('beam-incoming');
     els.jobs = document.getElementById('beam-jobs');
@@ -306,6 +346,16 @@ window.BeamView = (function () {
     els.file.addEventListener('change', function () {
       if (this.files && this.files[0]) chooseFile(this.files[0]);
       this.value = '';
+    });
+
+    var canPickFolders = Folders.canPick();
+    els.pickFolder.hidden = !canPickFolders;
+    document.getElementById('beam-folder-tip').hidden = canPickFolders;
+    els.pickFolder.addEventListener('click', function () { els.folder.click(); });
+    els.folder.addEventListener('change', function () {
+      var folder = Folders.fromPicked(this.files);
+      this.value = '';
+      chooseFolder(folder);
     });
 
     var onAction = function (clickEvent) {

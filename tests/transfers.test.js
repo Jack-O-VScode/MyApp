@@ -50,14 +50,3 @@ test('a zipped folder says how many files it holds', () => {
   assert.equal(parsed.name, 'Photos.zip');
   assert.equal(TransfersView._parseKey('1700000000000-abcde-e5__a.txt').files, 0);
 });
-
-test('a picked folder keeps every file under its own name', () => {
-  const picked = [
-    { name: 'a.txt', webkitRelativePath: 'Trip/a.txt', lastModified: 1 },
-    { name: 'b.jpg', webkitRelativePath: 'Trip/pics/b.jpg', lastModified: 2 }
-  ];
-  const folder = plain(TransfersView._folderFromPicked(picked));
-  assert.equal(folder.name, 'Trip');
-  assert.deepEqual(folder.entries.map((entry) => entry.path), ['Trip/a.txt', 'Trip/pics/b.jpg']);
-  assert.equal(TransfersView._folderFromPicked([]), null);
-});

@@ -103,6 +103,12 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   one Wi-Fi it is far quicker. If no direct route exists it **relays** through
   the storage bucket instead — one 32 MB chunk at a time, deleted the moment the
   other end confirms it, so a file of any size fits inside the storage quota.
+- **Folders** go too, with no size limit: **Choose a folder** packs it into one
+  `.zip` first (switching to the ZIP64 format past 4 GB, which every current
+  computer and phone opens), then it is offered like any file. Photos and
+  videos inside are not recompressed, so zipping them is quick. As with leaving
+  a file, iPhone and iPad cannot pick a folder from a web page — Compress it in
+  Files and send the `.zip`.
 - If the direct route dies part way it drops to the relay and **carries on from
   the last chunk that landed**, rather than starting again.
 - On a desktop browser it streams straight into the file you picked when you
@@ -653,7 +659,8 @@ js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
 js/markdown.js          safe Markdown rendering for notes
 js/attachments.js       pictures in notes: upload, shrink, offline cache
-js/zip.js               packs a folder into one .zip in the browser
+js/zip.js               packs a folder into one .zip in the browser (ZIP64 aware)
+js/folders.js           reads a picked or dropped folder, for both Transfer halves
 js/today.js             the Today screen and cross-app search
 js/zones.js             the city list behind the Timezones screen
 js/clocks.js            the Timezones screen: search, pinning, live clocks

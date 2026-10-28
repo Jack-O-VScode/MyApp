@@ -580,58 +580,6 @@ window.TransfersView = (function () {
     });
   }
 
-  // From the folder picker: every file knows its path from the folder down.
-  function folderFromPicked(fileList) {
-    var files = Array.prototype.slice.call(fileList || []);
-    if (!files.length) return null;
-    var root = String(files[0].webkitRelativePath || files[0].name).split('/')[0] || 'Folder';
-    return {
-      name: root,
-      entries: files.map(function (file) {
-        return {
-          path: file.webkitRelativePath || (root + '/' + file.name),
-          file: file,
-          lastModified: file.lastModified
-        };
-      })
-    };
-  }
-
-  // A directory reader hands entries over in batches; ask until it runs dry.
-  function readAll(reader) {
-    var all = [];
-    return new Promise(function (resolve, reject) {
-      (function next() {
-        reader.readEntries(function (batch) {
-          if (!batch.length) return resolve(all);
-          all = all.concat(Array.prototype.slice.call(batch));
-          next();
-        }, reject);
-      })();
-    });
-  }
-
-  function fileOf(entry) {
-    return new Promise(function (resolve, reject) { entry.file(resolve, reject); });
-  }
-
-  // Everything under a dropped folder, subfolders included. Empty folders are
-  // kept too, so what unzips is the same shape that was sent.
-  function walk(entry) {
-    var path = entry.fullPath.replace(/^\/+/, '');
-    if (entry.isFile) {
-      return fileOf(entry).then(function (file) {
-        return [{ path: path, file: file, lastModified: file.lastModified }];
-      });
-    }
-    return readAll(entry.createReader()).then(function (children) {
-      if (!children.length) return [{ path: path, file: null }];
-      return Promise.all(children.map(walk)).then(function (nested) {
-        return [].concat.apply([], nested);
-      });
-    });
-  }
-
   // A drop can mix files and folders. Entries must be taken during the drop
   // event itself — the browser empties the list as soon as it returns.
   function handleDrop(transfer) {
@@ -647,24 +595,17 @@ window.TransfersView = (function () {
 
     var loose = entries.filter(function (entry) { return entry.isFile; });
     if (loose.length) {
-      Promise.all(loose.map(fileOf)).then(send, function (err) {
+      Promise.all(loose.map(Folders.fileOf)).then(send, function (err) {
         setMessage(friendlyError(err), true);
       });
     }
     entries.filter(function (entry) { return entry.isDirectory; }).forEach(function (entry) {
-      walk(entry).then(function (found) {
+      Folders.walk(entry).then(function (found) {
         sendFolder({ name: entry.name, entries: found });
       }, function () {
         setMessage('“' + entry.name + '” could not be read — try Choose a folder instead.', true);
       });
     });
-  }
-
-  // iPhone and iPad have no way to pick a folder from a web page.
-  function folderPickingWorks() {
-    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    return !ios && 'webkitdirectory' in document.createElement('input');
   }
 
   function handleClick(clickEvent) {
@@ -764,12 +705,12 @@ window.TransfersView = (function () {
 
     var folderInput = document.getElementById('transfer-folder');
     var folderButton = document.getElementById('transfer-pick-folder');
-    var canPickFolders = folderPickingWorks();
+    var canPickFolders = Folders.canPick();
     folderButton.hidden = !canPickFolders;
     document.getElementById('transfer-folder-tip').hidden = canPickFolders;
     folderButton.addEventListener('click', function () { folderInput.click(); });
     folderInput.addEventListener('change', function () {
-      var folder = folderFromPicked(this.files);
+      var folder = Folders.fromPicked(this.files);
       this.value = '';
       if (folder) sendFolder(folder);
       else setMessage('That folder is empty — there is nothing in it to send.', true);
@@ -809,7 +750,6 @@ window.TransfersView = (function () {
     },
     // Exposed for the tests.
     _parseKey: parseKey,
-    _folderFromPicked: folderFromPicked,
     _lifetime: lifetime,
     _expiresIn: expiresIn
   };

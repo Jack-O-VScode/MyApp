@@ -322,9 +322,13 @@
             here.</p>
           <div class="beam-actions">
             <button id="beam-pick" class="button primary" type="button" disabled>Choose a file</button>
+            <button id="beam-pick-folder" class="button" type="button" disabled hidden>Choose a folder</button>
             <input id="beam-file" type="file" hidden>
+            <input id="beam-folder" type="file" webkitdirectory multiple hidden>
             <span id="beam-hint" class="beam-hint"></span>
           </div>
+          <p id="beam-folder-tip" class="beam-hint beam-folder-tip" hidden>To send a folder from an
+            iPhone or iPad: in Files, press and hold it, tap <strong>Compress</strong>, then send the .zip.</p>
         </div>
       </section>
 
@@ -1048,6 +1052,7 @@ create index if not exists reminders_pending
 <script src="js/drag.js"></script>
 <script src="js/attachments.js"></script>
 <script src="js/zip.js"></script>
+<script src="js/folders.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/notes.js"></script>

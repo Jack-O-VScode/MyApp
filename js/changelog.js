@@ -9,6 +9,14 @@
 */
 window.CHANGELOG = [
   {
+    version: 30, date: '2026-10-28', title: 'Folders, any size, device to device',
+    changes: [
+      { kind: 'new', text: 'Send to a device takes whole folders too, with no size limit: pick the device, press Choose a folder, and both say Ready as usual. It arrives as one .zip that opens back into the folder with a tap.' },
+      { kind: 'better', text: 'Zipping a folder of photos or videos is much quicker: files that are already compressed go in as they are instead of being squeezed for nothing.' },
+      { kind: 'better', text: 'Folders past 4 GB zip properly, in the larger format every computer and phone still opens.' }
+    ]
+  },
+  {
     version: 29, date: '2026-10-27', title: 'Send a whole folder',
     changes: [
       { kind: 'new', text: 'Leave a whole folder for your other devices to collect: drag it onto Transfer, or press Choose a folder. It is zipped into one file on the way — subfolders and all — and opens back into the same folder with a tap on Windows, Mac, iPhone or iPad.' },
