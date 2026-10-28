@@ -84,6 +84,17 @@ The hamburger button (☰) at the top left opens a dropdown for switching betwee
   `> quotes` and code. A small bar inserts the common ones, and **Preview**
   shows the note formatted — with checklist boxes you can tick right there.
   Anything that looks like HTML is shown as text, never run.
+- **Lock a note with a password**: tap the padlock in the note. Its text is
+  encrypted on the device (AES-256-GCM, with a key made from the password by
+  600,000 rounds of PBKDF2) before it is saved, so what reaches localStorage,
+  your sync project and your backups is unreadable without it. The password is
+  never stored. The title and tags stay visible so the note can be found; the
+  text, its search and its preview do not. A locked note asks for the password
+  each time, and locks again when you leave it or after two minutes in the
+  background. Optional hint, change password, remove lock. **There is no
+  reset**: forget the password and the note cannot be opened by anyone.
+  Pictures are separate files and cannot be encrypted, so they are turned off
+  in locked notes; any attached before locking stay in your private bucket.
 - **Pictures**: attach one with the picture button. It is shrunk if it is a
   large photo, stored in your own sync project, and kept on the device once
   seen, so it still shows offline. Needs sync to be on. Deleting the note
@@ -658,6 +669,7 @@ js/quickparse.js        reads "lunch fri 1pm" into a date, time, repeat, priorit
 js/tasks.js             task list, task editor, shared task-row renderer
 js/notes.js             note list, tags, note editor
 js/markdown.js          safe Markdown rendering for notes
+js/notelock.js          password-locking a note: PBKDF2 + AES-GCM via Web Crypto
 js/attachments.js       pictures in notes: upload, shrink, offline cache
 js/zip.js               packs a folder into one .zip in the browser (ZIP64 aware)
 js/folders.js           reads a picked or dropped folder, for both Transfer halves

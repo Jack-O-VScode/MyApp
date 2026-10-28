@@ -9,6 +9,14 @@
 */
 window.CHANGELOG = [
   {
+    version: 31, date: '2026-10-28', title: 'Lock notes with a password',
+    changes: [
+      { kind: 'new', text: 'Lock a note with a password: open it and tap the padlock. The text is encrypted on your device before it is saved or synced, so it stays unreadable everywhere — in sync and in backups too. The title stays visible so you can find it.' },
+      { kind: 'new', text: 'A locked note asks for its password each time you open it, and locks again when you leave it or after a couple of minutes in the background. You can add a hint, change the password, or remove the lock.' },
+      { kind: 'better', text: 'There is no way to reset a forgotten password — not for you, not for anyone. That is what keeps the note private, so choose one you will remember.' }
+    ]
+  },
+  {
     version: 30, date: '2026-10-28', title: 'Folders, any size, device to device',
     changes: [
       { kind: 'new', text: 'Send to a device takes whole folders too, with no size limit: pick the device, press Choose a folder, and both say Ready as usual. It arrives as one .zip that opens back into the folder with a tap.' },

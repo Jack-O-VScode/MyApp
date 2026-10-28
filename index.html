@@ -758,6 +758,9 @@
     <button id="note-pin" class="icon-button" type="button" aria-pressed="false" aria-label="Pin note">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 3v2H6v-2l4-3-1-6Z"/><path d="M12 14v7"/></svg>
     </button>
+    <button id="note-lock" class="icon-button" type="button" aria-label="Lock note with a password">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path class="shackle-open" d="M8 11V8a4 4 0 0 1 7.5-2"/><path class="shackle-closed" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    </button>
     <button id="note-delete" class="icon-button danger" type="button" aria-label="Delete note">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>
     </button>
@@ -786,11 +789,65 @@
   </div>
   <textarea id="note-body" class="note-body" placeholder="Start writing… **bold**, *italic*, # heading, - list, [link](https://…)" aria-label="Note body"></textarea>
   <div id="note-rendered" class="note-rendered markdown" hidden></div>
+  <form id="note-unlock" class="note-unlock" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    <h2>This note is locked</h2>
+    <p id="note-unlock-hint" class="help-note" hidden></p>
+    <input id="note-unlock-password" class="note-unlock-password" type="password"
+           autocomplete="current-password" placeholder="Password" aria-label="Password">
+    <p id="note-unlock-error" class="form-error" role="alert" hidden></p>
+    <button id="note-unlock-button" class="button primary" type="submit">Unlock</button>
+  </form>
   <label class="note-tags">
     <span>Tags</span>
     <input id="note-tags" type="text" placeholder="work, ideas" autocomplete="off"
            autocapitalize="none" aria-label="Tags, separated by commas">
   </label>
+</div>
+
+<!-- ------------------------------ Note lock -------------------------------- -->
+<div id="lock-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="lock-title" hidden>
+  <div class="modal-panel">
+    <h2 id="lock-title">Lock this note</h2>
+
+    <form id="lock-set">
+      <p class="help-note">The note&rsquo;s text is encrypted with this password, here on this
+        device, before it is saved or synced — so it stays unreadable in your sync project and
+        in backups too. The title stays visible so you can find it.</p>
+      <label class="field">
+        <span>Password</span>
+        <input id="lock-password" type="password" autocomplete="new-password" minlength="4">
+      </label>
+      <label class="field">
+        <span>Type it again</span>
+        <input id="lock-repeat" type="password" autocomplete="new-password">
+      </label>
+      <label class="field">
+        <span>Hint <em>optional — anyone can read it</em></span>
+        <input id="lock-hint" type="text" maxlength="100" autocomplete="off">
+      </label>
+      <p class="lock-warning"><strong>There is no reset.</strong> Forget the password and this
+        note cannot be opened again — not by you, not by anyone.</p>
+      <p id="lock-pictures" class="help-note" hidden></p>
+      <p id="lock-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="button" type="button" data-lock-close>Cancel</button>
+        <button id="lock-submit" class="button primary" type="submit">Lock</button>
+      </div>
+    </form>
+
+    <section id="lock-manage" hidden>
+      <p class="help-note">This note is locked. It is open because you typed its password, and
+        it locks again as soon as you leave it — or after a couple of minutes in the background.</p>
+      <div class="modal-actions">
+        <button id="lock-remove" class="button danger" type="button">Remove lock</button>
+        <span class="spacer"></span>
+        <button id="lock-change" class="button" type="button">Change password</button>
+        <button id="lock-now" class="button primary" type="button">Lock now</button>
+      </div>
+    </section>
+  </div>
 </div>
 
 <!-- ----------------------------- Reminders --------------------------------- -->
@@ -1055,6 +1112,7 @@ create index if not exists reminders_pending
 <script src="js/folders.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/tasks.js"></script>
+<script src="js/notelock.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/today.js"></script>
 <script src="js/clocks.js"></script>

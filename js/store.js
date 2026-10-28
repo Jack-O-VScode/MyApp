@@ -79,6 +79,21 @@ window.Store = (function () {
 
   var PRIORITIES = [0, 1, 2, 3];
 
+  // The shape js/notelock.js writes, or null. Anything malformed is dropped
+  // rather than half-trusted.
+  function cleanLocked(locked) {
+    if (!locked || typeof locked !== 'object' || locked.v !== 1) return null;
+    if (typeof locked.iter !== 'number' || locked.iter < 1) return null;
+    var ok = ['salt', 'iv', 'data'].every(function (key) {
+      return typeof locked[key] === 'string' && locked[key].length > 0;
+    });
+    if (!ok) return null;
+    return {
+      v: 1, iter: locked.iter, salt: locked.salt, iv: locked.iv, data: locked.data,
+      hint: typeof locked.hint === 'string' ? locked.hint.slice(0, 100) : ''
+    };
+  }
+
   // Subtasks are a short list inside the task, not records of their own: they
   // only ever make sense next to their parent, and travel with it in sync.
   function cleanSubtasks(list) {
@@ -132,6 +147,10 @@ window.Store = (function () {
       // The event a note belongs to (meeting notes), and which day of it.
       if (typeof item.eventId !== 'string') item.eventId = '';
       if (typeof item.eventDate !== 'string') item.eventDate = '';
+      // A password-locked note keeps its text only in here, encrypted (see
+      // js/notelock.js); its body stays empty.
+      item.locked = cleanLocked(item.locked);
+      if (item.locked) item.body = '';
     }
     return item;
   }
@@ -814,6 +833,20 @@ window.Store = (function () {
       note.pinned = fields.pinned;
       changed = true;
     }
+    // Locking, relocking with a new seal, or (null) unlocking for good. A
+    // locked note's body is always empty: its text lives in the seal.
+    if (fields.locked !== undefined) {
+      var seal = cleanLocked(fields.locked);
+      if (JSON.stringify(seal) !== JSON.stringify(note.locked)) {
+        note.locked = seal;
+        changed = true;
+      }
+    }
+    // Whoever the caller, plain text never sits beside a seal.
+    if (note.locked && note.body) {
+      note.body = '';
+      changed = true;
+    }
     if (typeof fields.eventId === 'string' && fields.eventId !== note.eventId) {
       note.eventId = fields.eventId;
       note.eventDate = fields.eventId && isKey(fields.eventDate) ? fields.eventDate : '';
@@ -971,7 +1004,8 @@ window.Store = (function () {
       payload = {
         title: item.title, body: item.body,
         pinned: !!item.pinned, tags: item.tags || [],
-        eventId: item.eventId || '', eventDate: item.eventDate || ''
+        eventId: item.eventId || '', eventDate: item.eventDate || '',
+        locked: item.locked || null
       };
     }
     return {
@@ -1023,6 +1057,7 @@ window.Store = (function () {
       base.tags = Array.isArray(payload.tags) ? payload.tags.slice() : [];
       base.eventId = String(payload.eventId || '');
       base.eventDate = String(payload.eventDate || '');
+      base.locked = payload.locked || null;
     }
     return normalise(base, record.kind);
   }

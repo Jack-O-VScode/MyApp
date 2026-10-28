@@ -2431,3 +2431,48 @@ span.md-image.is-loading { animation: md-pulse 1.2s ease-in-out infinite; }
 .expiry-summary.is-error { color: var(--danger); }
 
 .beam-folder-tip { display: block; margin: 8px 0 0; }
+
+/* ----------------------------------------------------------- locked notes -- */
+.note-card.is-locked p { font-style: italic; }
+#note-lock .shackle-closed, #note-lock.is-on .shackle-open { display: none; }
+#note-lock.is-on .shackle-closed { display: inline; }
+.note-unlock {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 12px;
+  text-align: center;
+}
+.note-unlock > svg {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.note-unlock h2 { margin: 0; font-size: 1.15rem; }
+.note-unlock .help-note, .note-unlock .form-error { margin: 0; }
+.note-unlock-password {
+  width: min(320px, 100%);
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-2);
+  font: inherit;
+  text-align: center;
+  outline: none;
+}
+.note-unlock-password:focus { border-color: var(--brand); }
+.lock-warning {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--text);
+  font-size: .86rem;
+}

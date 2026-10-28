@@ -212,7 +212,7 @@ window.TodayView = (function () {
       title.textContent = note.title.trim() || 'Untitled note';
       var text = document.createElement('span');
       text.className = 'note-chip-text';
-      text.textContent = Markdown.plain(note.body).trim() || 'Empty';
+      text.textContent = note.locked ? '🔒 Locked' : (Markdown.plain(note.body).trim() || 'Empty');
       card.appendChild(title);
       card.appendChild(text);
       fragment.appendChild(card);
@@ -274,7 +274,7 @@ window.TodayView = (function () {
       }),
       resultGroup('Notes', hits.notes, function (note) {
         return resultRow(note.title.trim() || 'Untitled note',
-          Markdown.plain(note.body).trim().slice(0, 80), { note: note.id });
+          note.locked ? '🔒 Locked' : Markdown.plain(note.body).trim().slice(0, 80), { note: note.id });
       })
     ].filter(Boolean);
 

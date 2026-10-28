@@ -1028,6 +1028,7 @@
       else if (!clearEls.modal.hidden) closeClearRange();
       else if (CalendarView.isModalOpen()) CalendarView.closeModal();
       else if (TasksView.isModalOpen()) TasksView.closeModal();
+      else if (NotesView.isLockDialogOpen()) NotesView.closeLockDialog();
       else if (NotesView.isEditorOpen()) NotesView.closeEditor();
     });
 
